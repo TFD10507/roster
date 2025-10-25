@@ -189,7 +189,7 @@ export class DutyCalendarComponent implements OnInit {
    }
 
    this.normalEvents = days;
-   this.saveEvents();
+  //  this.saveEvents();
  }
 
  /** 產生UAT測資小天使排程（2週為一個sprint） */
@@ -258,58 +258,58 @@ export class DutyCalendarComponent implements OnInit {
    }
 
    this.uatEvents = days;
-   this.saveEvents();
+  //  this.saveEvents();
  }
 
  /** 點擊事件（從 template 傳來的 CalendarEvent） */
- handleEventClick(clickedEvent: CalendarEvent): void {
-   // cast 成 DutyEvent 使用自定義屬性
-   const event = clickedEvent as DutyEvent;
-   const current = event.dutyPerson ?? event.title ?? '';
+//  handleEventClick(clickedEvent: CalendarEvent): void {
+//    // cast 成 DutyEvent 使用自定義屬性
+//    const event = clickedEvent as DutyEvent;
+//    const current = event.dutyPerson ?? event.title ?? '';
 
-   // 根據當前值班類型選擇人員清單
-   const peopleList = this.currentDutyType === 'uat' ? this.uatDutyPeople : this.dutyPeople;
-   const dutyTypeName = this.currentDutyType === 'uat' ? 'UAT測資小天使' : '一般值班';
+//    // 根據當前值班類型選擇人員清單
+//    const peopleList = this.currentDutyType === 'uat' ? this.uatDutyPeople : this.dutyPeople;
+//    const dutyTypeName = this.currentDutyType === 'uat' ? 'UAT測資小天使' : '一般值班';
 
-   // 安全檢查人員清單
-   if (!peopleList || peopleList.length === 0) {
-     alert('人員清單載入中，請稍後再試');
-     return;
-   }
+//    // 安全檢查人員清單
+//    if (!peopleList || peopleList.length === 0) {
+//      alert('人員清單載入中，請稍後再試');
+//      return;
+//    }
 
-   // 建立選擇清單
-   const options = peopleList.map((person, index) => `${index + 1}. ${person?.name || '未知'}`).join('\n');
-   const message = `目前${dutyTypeName}：${current}\n\n請選擇新的值班人員：\n${options}\n\n請輸入數字 (1-${peopleList.length}) 或取消：`;
+//    // 建立選擇清單
+//    const options = peopleList.map((person, index) => `${index + 1}. ${person?.name || '未知'}`).join('\n');
+//    const message = `目前${dutyTypeName}：${current}\n\n請選擇新的值班人員：\n${options}\n\n請輸入數字 (1-${peopleList.length}) 或取消：`;
 
-   const input = prompt(message);
+//    const input = prompt(message);
 
-   if (input === null) {
-     // 使用者按取消 -> 不變
-     return;
-   }
+//    if (input === null) {
+//      // 使用者按取消 -> 不變
+//      return;
+//    }
 
-   const selectedIndex = parseInt(input.trim()) - 1;
-   if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= peopleList.length) {
-     alert(`請輸入 1 到 ${peopleList.length} 之間的數字`);
-     return;
-   }
+//    const selectedIndex = parseInt(input.trim()) - 1;
+//    if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= peopleList.length) {
+//      alert(`請輸入 1 到 ${peopleList.length} 之間的數字`);
+//      return;
+//    }
 
-   const selectedPerson = peopleList[selectedIndex];
-   if (!selectedPerson) {
-     alert('選擇的人員無效，請重新選擇');
-     return;
-   }
+//    const selectedPerson = peopleList[selectedIndex];
+//    if (!selectedPerson) {
+//      alert('選擇的人員無效，請重新選擇');
+//      return;
+//    }
 
-   const titleSuffix = this.currentDutyType === 'uat' ? ' (UAT)' : '';
-   event.title = selectedPerson.name + titleSuffix;
-   event.dutyPerson = selectedPerson.name;
-   event.color = selectedPerson.color;
-   this.saveEvents();
- } /** 儲存到 localStorage（把 Date 會自動被 JSON.stringify 轉成字串） */
- saveEvents(): void {
-   const eventsToSave = this.currentDutyType === 'uat' ? this.uatEvents : this.normalEvents;
-   localStorage.setItem(this.storageKey, JSON.stringify(eventsToSave));
- }
+//    const titleSuffix = this.currentDutyType === 'uat' ? ' (UAT)' : '';
+//    event.title = selectedPerson.name + titleSuffix;
+//    event.dutyPerson = selectedPerson.name;
+//    event.color = selectedPerson.color;
+//    this.saveEvents();
+//  } /** 儲存到 localStorage（把 Date 會自動被 JSON.stringify 轉成字串） */
+//  saveEvents(): void {
+//    const eventsToSave = this.currentDutyType === 'uat' ? this.uatEvents : this.normalEvents;
+//    localStorage.setItem(this.storageKey, JSON.stringify(eventsToSave));
+//  }
 
  /** 從 localStorage 載入，並把 start/end 轉回 Date */
  loadEvents(): void {
