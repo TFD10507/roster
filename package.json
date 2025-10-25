@@ -8,7 +8,7 @@
     "build:prod": "ng build --configuration production",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "deploy": "ng build --configuration production --base-href '/roster/' && npx angular-cli-ghpages --dir=dist/duty-schedule"
+    "deploy": "ng build --configuration production --base-href ./ && npx angular-cli-ghpages --dir=dist/duty-schedule"
   },
   "private": true,
   "dependencies": {
