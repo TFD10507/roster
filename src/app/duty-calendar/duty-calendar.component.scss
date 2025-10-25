@@ -90,6 +90,9 @@
 ::ng-deep {
   .cal-month-view {
     padding: 0 2rem 2rem 2rem;
+    .cal-events{
+      line-height: 0px;
+    }
 
     .cal-header {
       background: #f8f9fa;
@@ -143,7 +146,7 @@
               margin: 0 0 0.5rem 0;
               font-weight: bold;
               font-size: 1.1rem; // 增大今天的日期字體
-              box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+              // box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
             }
           }
 
@@ -164,13 +167,14 @@
             text-align: left;
             padding: 0.25rem 0.5rem; // 給日期數字一些內邊距
             border-radius: 4px; // 輕微圓角
-            background-color: rgba(255, 255, 255, 0.7); // 淡背景讓日期更突出
+            // background-color: rgba(255, 255, 255, 0.7); // 淡背景讓日期更突出
             display: inline-block;
             min-width: 28px;
             text-align: center;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            // box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
           }          .cal-events {
             .cal-event {
+              width: 100%;
               margin: 0.25rem 0;
               padding: 0.7rem 1rem; // 增加內邊距讓值班人員名字更突出
               border-radius: 8px; // 增加圓角
