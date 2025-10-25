@@ -112,7 +112,14 @@ export class DutyCalendarComponent implements OnInit {
    if (!this.hasSavedEventsForMonth(this.viewDate)) {
      this.generateAutoSchedule();
    }
- } /** 檢查 localStorage 是否已經有當月的事件（簡單判斷） */
+ } 
+ 
+goToToday() {
+  this.viewDate = new Date();
+  this.loadEvents();
+}
+ 
+ /** 檢查 localStorage 是否已經有當月的事件（簡單判斷） */
  private hasSavedEventsForMonth(date: Date): boolean {
    const data = localStorage.getItem(this.storageKey);
    if (!data) return false;
@@ -354,7 +361,7 @@ export class DutyCalendarComponent implements OnInit {
    const dutyTypeName = this.currentDutyType === 'uat' ? 'UAT測資小天使' : '一般值班';
 
    const list = peopleList.map((person, index) => `${index + 1}. ${person.name}`).join('\n');
-   alert(`${dutyTypeName}人員清單：\n\n${list}\n\n點擊日期可以修改值班人員`);
+   alert(`${dutyTypeName}人員清單：\n\n${list}`);
  }
 
  /** 切換值班類型 */
