@@ -4,6 +4,8 @@ import {
  CalendarView
 } from 'angular-calendar';
 import { addDays, startOfMonth, endOfMonth, addMonths, differenceInDays, format } from 'date-fns';
+import { DutyDatabaseService, DutyChange } from '../services/duty-database.service';
+import { Subscription } from 'rxjs';
 
 interface DutyPerson {
  name: string;
@@ -82,7 +84,38 @@ export class DutyCalendarComponent implements OnInit, OnDestroy {
  toastType: 'success' | 'info' | 'warning' = 'info';
  private toastTimeout: any;
 
+ // 台灣農曆過年國定假日設定（包含補假）
+ private chineseNewYearHolidays = [
+   // 2026年農曆過年：2/14(六)~2/22(日) 共9天
+   { start: new Date(2026, 1, 14), end: new Date(2026, 1, 22) }
+ ];
+
+ // Firebase 相關屬性
+ dutyChanges: DutyChange[] = [];
+ currentUser: string = '使用者'; // 可以從登入系統取得
+ private subscriptions: Subscription[] = [];
+
+ constructor(private dutyDatabaseService: DutyDatabaseService) {}
+
  ngOnInit(): void {
+   // 訂閱 Firebase 即時資料
+   this.subscriptions.push(
+     this.dutyDatabaseService.getDutyChanges().subscribe(changes => {
+       this.dutyChanges = changes;
+       this.generateBothSchedules(); // 重新產生排班
+     })
+   );
+
+   this.subscriptions.push(
+     this.dutyDatabaseService.getDutySettings().subscribe(settings => {
+       if (settings) {
+         // 如果資料庫有人員順序設定，就使用資料庫的
+         this.updatePeopleOrderFromDatabase(settings);
+         this.generateBothSchedules();
+       }
+     })
+   );
+
    // 自動產生兩種模式的排班
    this.generateBothSchedules();
    // 檢查衝突並顯示警告
@@ -94,6 +127,9 @@ export class DutyCalendarComponent implements OnInit, OnDestroy {
    if (this.toastTimeout) {
      clearTimeout(this.toastTimeout);
    }
+   
+   // 清理 Firebase 訂閱
+   this.subscriptions.forEach(sub => sub.unsubscribe());
  }
 
  /** 取得當前顯示的事件 */
@@ -143,6 +179,30 @@ export class DutyCalendarComponent implements OnInit, OnDestroy {
    }
  }
 
+ /** 從資料庫更新人員順序 */
+ private updatePeopleOrderFromDatabase(settings: any): void {
+   if (settings.normalDutyOrder && settings.normalDutyOrder.length > 0) {
+     // 根據資料庫的順序重新排序人員清單
+     const newOrder = settings.normalDutyOrder.map((name: string) => 
+       this.dutyPeople.find(p => p.name === name)
+     ).filter(Boolean);
+     
+     if (newOrder.length === this.dutyPeople.length) {
+       this.dutyPeople = newOrder;
+     }
+   }
+
+   if (settings.uatDutyOrder && settings.uatDutyOrder.length > 0) {
+     const newOrder = settings.uatDutyOrder.map((name: string) => 
+       this.uatDutyPeople.find(p => p.name === name)
+     ).filter(Boolean);
+     
+     if (newOrder.length === this.uatDutyPeople.length) {
+       this.uatDutyPeople = newOrder;
+     }
+   }
+ }
+
  /** 檢查值班衝突並顯示警告 */
  checkConflictsAndWarn(): void {
    const conflicts = this.findDutyConflicts();
@@ -155,9 +215,20 @@ export class DutyCalendarComponent implements OnInit, OnDestroy {
      this.showConflictAlert(upcomingConflicts);
    } else {
      // 檢查是否有更遠期的衝突
+     console.log(conflicts);
      const allFutureConflicts = conflicts.filter(conflict => conflict.daysUntilConflict > 14);
      if (allFutureConflicts.length > 0) {
-       this.showToastNotification(`近期兩週內沒有值班衝突！但發現 ${allFutureConflicts.length} 個更遠期的衝突，建議提前留意。`, 'info', 4000);
+       // 找到最近的衝突
+       const nearestConflict = allFutureConflicts.reduce((nearest, current) => 
+         current.daysUntilConflict < nearest.daysUntilConflict ? current : nearest
+       );
+       
+       const nearestDateStr = format(nearestConflict.date, 'yyyy/MM/dd');
+       this.showToastNotification(
+         `有 ${allFutureConflicts.length} 個遠期的衝突，最近的是 ${nearestDateStr} ${nearestConflict.person}，建議提前留意。`, 
+         'info', 
+         4000
+       );
      } else {
        this.showToastNotification('未來三個月內沒有發現值班衝突！', 'success', 3000);
      }
@@ -235,6 +306,11 @@ export class DutyCalendarComponent implements OnInit, OnDestroy {
      { startDate: new Date(2025, 9, 20), endDate: new Date(2025, 9, 26), person: 'Bubble' },
      { startDate: new Date(2025, 9, 27), endDate: new Date(2025, 10, 2), person: 'Alen' },
      { startDate: new Date(2025, 10, 3), endDate: new Date(2025, 10, 9), person: 'Nico' },
+     { startDate: new Date(2025, 10, 10), endDate: new Date(2025, 10, 16), person: 'Boso' },
+     { startDate: new Date(2025, 10, 17), endDate: new Date(2025, 10, 23), person: 'Lynn' },
+     { startDate: new Date(2025, 10, 24), endDate: new Date(2025, 10, 30), person: 'Miao' },
+     { startDate: new Date(2025, 11, 1), endDate: new Date(2025, 11, 7), person: '小Angela' },
+     { startDate: new Date(2025, 11, 8), endDate: new Date(2025, 11, 14), person: '大Angela' },
    ];
 
    let current = new Date(start);
@@ -415,10 +491,14 @@ goToToday() {
 
    // 定義值班排程表
    const dutySchedule = [
-     { startDate: new Date(2025, 9, 20), endDate: new Date(2025, 9, 26), person: 'Bubble' },  // 10/20-10/26
-     { startDate: new Date(2025, 9, 27), endDate: new Date(2025, 10, 2), person: 'Alen' },   // 10/27-11/2
-     { startDate: new Date(2025, 10, 3), endDate: new Date(2025, 10, 9), person: 'Nico' },   // 11/3-11/9
-     // 可以繼續添加更多週期...
+     { startDate: new Date(2025, 9, 20), endDate: new Date(2025, 9, 26), person: 'Bubble' },
+     { startDate: new Date(2025, 9, 27), endDate: new Date(2025, 10, 2), person: 'Alen' },
+     { startDate: new Date(2025, 10, 3), endDate: new Date(2025, 10, 9), person: 'Nico' },
+     { startDate: new Date(2025, 10, 10), endDate: new Date(2025, 10, 16), person: 'Boso' },
+     { startDate: new Date(2025, 10, 17), endDate: new Date(2025, 10, 23), person: 'Lynn' },
+     { startDate: new Date(2025, 10, 24), endDate: new Date(2025, 10, 30), person: 'Miao' },
+     { startDate: new Date(2025, 11, 1), endDate: new Date(2025, 11, 7), person: '小Angela' },
+     { startDate: new Date(2025, 11, 8), endDate: new Date(2025, 11, 14), person: '大Angela' },
    ];
 
    let current = new Date(start);
@@ -460,6 +540,9 @@ goToToday() {
    }
 
    this.normalEvents = days;
+   
+   // 套用 Firebase 中的值班異動
+   this.normalEvents = this.applyDutyChanges(this.normalEvents);
  }
 
  /** 產生UAT測資小天使排程（2週為一個sprint） */
@@ -528,48 +611,79 @@ goToToday() {
    }
 
    this.uatEvents = days;
+   
+   // 套用 Firebase 中的值班異動
+   this.uatEvents = this.applyDutyChanges(this.uatEvents);
  }
 
- /** 點擊事件（從 template 傳來的 CalendarEvent） */
-//  handleEventClick(clickedEvent: CalendarEvent): void {
-//    // cast 成 DutyEvent 使用自定義屬性
-//    const event = clickedEvent as DutyEvent;
-//    const current = event.dutyPerson ?? event.title ?? '';
+ /** 點擊事件處理（加入 Firebase 儲存） */
+ async handleEventClick(clickedEvent: CalendarEvent): Promise<void> {
+   const event = clickedEvent as DutyEvent;
+   const current = event.dutyPerson ?? event.title ?? '';
+   const dateString = format(new Date(event.start!), 'yyyy-MM-dd');
 
-//    // 根據當前值班類型選擇人員清單
-//    const peopleList = this.currentDutyType === 'uat' ? this.uatDutyPeople : this.dutyPeople;
-//    const dutyTypeName = this.currentDutyType === 'uat' ? 'UAT測資小天使' : '一般值班';
+   // 跳過假期
+   if (current === '假期') {
+     this.showToastNotification('農曆過年假期無法異動值班', 'info', 2000);
+     return;
+   }
 
-//    // 安全檢查人員清單
-//    if (!peopleList || peopleList.length === 0) {
-//      alert('人員清單載入中，請稍後再試');
-//      return;
-//    }
+   const peopleList = this.currentDutyType === 'uat' ? this.uatDutyPeople : this.dutyPeople;
+   const dutyTypeName = this.currentDutyType === 'uat' ? 'UAT測資小天使' : '一般值班';
 
-//    // 建立選擇清單
-//    const options = peopleList.map((person, index) => `${index + 1}. ${person?.name || '未知'}`).join('\n');
-//    const message = `目前${dutyTypeName}：${current}\n\n請選擇新的值班人員：\n${options}\n\n請輸入數字 (1-${peopleList.length}) 或取消：`;
+   if (!peopleList || peopleList.length === 0) {
+     alert('人員清單載入中，請稍後再試');
+     return;
+   }
 
-//    const input = prompt(message);
+   const options = peopleList.map((person, index) => `${index + 1}. ${person?.name || '未知'}`).join('\n');
+   const message = `目前${dutyTypeName}：${current}\n\n請選擇新的值班人員：\n${options}\n\n請輸入數字 (1-${peopleList.length}) 或取消：`;
 
-//    if (input === null) {
-//      // 使用者按取消 -> 不變
-//      return;
-//    }
+   const input = prompt(message);
+   if (input === null) return;
 
-//    const selectedIndex = parseInt(input.trim()) - 1;
-//    if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= peopleList.length) {
-//      alert(`請輸入 1 到 ${peopleList.length} 之間的數字`);
-//      return;
-//    }
+   const selectedIndex = parseInt(input.trim()) - 1;
+   if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= peopleList.length) {
+     alert(`請輸入 1 到 ${peopleList.length} 之間的數字`);
+     return;
+   }
 
-//    const selectedPerson = peopleList[selectedIndex];
-//    if (!selectedPerson) {
-//      alert('選擇的人員無效，請重新選擇');
-//      return;
-//    }
+   const selectedPerson = peopleList[selectedIndex];
+   if (!selectedPerson) {
+     alert('選擇的人員無效，請重新選擇');
+     return;
+   }
 
-//    const titleSuffix = this.currentDutyType === 'uat' ? ' (UAT)' : '';
+   // 如果選擇的是同一個人，就不需要異動
+   if (selectedPerson.name === current) {
+     this.showToastNotification('未變更值班人員', 'info', 2000);
+     return;
+   }
+
+   // 詢問異動原因
+   const reason = prompt('請輸入異動原因（選填）：') || '';
+
+   try {
+     // 儲存到 Firebase
+     await this.dutyDatabaseService.addDutyChange({
+       date: dateString,
+       originalPerson: current,
+       newPerson: selectedPerson.name,
+       dutyType: this.currentDutyType,
+       changedBy: this.currentUser,
+       reason: reason
+     });
+
+     this.showToastNotification(
+       `✅ 已將 ${dateString} 的${dutyTypeName}從 ${current} 改為 ${selectedPerson.name}`,
+       'success',
+       3000
+     );
+   } catch (error) {
+     console.error('儲存異動失敗:', error);
+     this.showToastNotification('❌ 儲存失敗，請檢查網路連線後重試', 'warning', 3000);
+   }
+ }
  /** 顯示值班人員清單 */
  showDutyList(): void {
    const peopleList = this.currentDutyType === 'uat' ? this.uatDutyPeople : this.dutyPeople;
@@ -577,6 +691,77 @@ goToToday() {
 
    const list = peopleList.map((person, index) => `${index + 1}. ${person.name}`).join('\n');
    alert(`${dutyTypeName}人員清單：\n\n${list}`);
+ }
+
+ /** 套用 Firebase 中的值班異動 */
+ private applyDutyChanges(events: DutyEvent[]): DutyEvent[] {
+   return events.map(event => {
+     const dateString = format(new Date(event.start!), 'yyyy-MM-dd');
+     const change = this.dutyChanges.find(c => 
+       c.date === dateString && c.dutyType === this.currentDutyType
+     );
+
+     if (change) {
+       // 找到對應的人員顏色
+       const peopleList = this.currentDutyType === 'uat' ? this.uatDutyPeople : this.dutyPeople;
+       const newPerson = peopleList.find(p => p.name === change.newPerson);
+       
+       if (newPerson) {
+         const titleSuffix = this.currentDutyType === 'uat' ? ' (UAT)' : '';
+         return {
+           ...event,
+           title: `${newPerson.name}${titleSuffix} ⚡`,
+           dutyPerson: newPerson.name,
+           color: { 
+             primary: newPerson.color.primary, 
+             secondary: newPerson.color.secondary 
+           }
+         };
+       }
+     }
+
+     return event;
+   });
+ }
+
+ /** 顯示異動歷史 */
+ showDutyChangeHistory(): void {
+   if (this.dutyChanges.length === 0) {
+     alert('目前沒有值班異動記錄');
+     return;
+   }
+
+   const history = this.dutyChanges
+     .slice(0, 10) // 只顯示最近10筆
+     .map(change => {
+       const date = change.date;
+       const type = change.dutyType === 'uat' ? 'UAT' : '一般';
+       const reason = change.reason ? ` (${change.reason})` : '';
+       const changedAt = change.changedAt.toDate().toLocaleString('zh-TW');
+       return `📅 ${date} ${type}值班\n👤 ${change.originalPerson} → ${change.newPerson}\n👨‍💻 by ${change.changedBy}${reason}\n🕐 ${changedAt}`;
+     })
+     .join('\n\n');
+
+   alert(`最近的值班異動記錄：\n\n${history}`);
+ }
+
+ /** 儲存當前人員順序到 Firebase */
+ async savePeopleOrderToDatabase(): Promise<void> {
+   try {
+     const normalOrder = this.dutyPeople.map(p => p.name);
+     const uatOrder = this.uatDutyPeople.map(p => p.name);
+     
+     await this.dutyDatabaseService.updateDutyOrder(
+       normalOrder,
+       uatOrder,
+       this.currentUser
+     );
+     
+     this.showToastNotification('✅ 人員順序已儲存到雲端', 'success', 3000);
+   } catch (error) {
+     console.error('儲存人員順序失敗:', error);
+     this.showToastNotification('❌ 儲存失敗，請重試', 'warning', 3000);
+   }
  }
 
  /** 切換值班類型 */
