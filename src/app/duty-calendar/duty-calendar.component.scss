@@ -131,6 +131,20 @@
     &:hover { background: rgba(255, 87, 34, 0.4); }
     &::before { content: "⚠️ "; margin-right: 0.25rem; }
   }
+  
+  .history-btn {
+    background: rgba(156, 39, 176, 0.3);
+    border: 1px solid rgba(156, 39, 176, 0.5);
+    &:hover { background: rgba(156, 39, 176, 0.4); }
+    &::before { content: "📝 "; margin-right: 0.25rem; }
+  }
+
+  .save-btn {
+    background: rgba(76, 175, 80, 0.3);
+    border: 1px solid rgba(76, 175, 80, 0.5);
+    &:hover { background: rgba(76, 175, 80, 0.4); }
+    &::before { content: "💾 "; margin-right: 0.25rem; }
+  }
 
   @media (max-width: 768px) { flex-direction: column; gap: 0.75rem; padding: 1rem; }
 }
@@ -291,5 +305,6 @@
   // 隱藏事件計數器
   .cal-event-list, .cal-event-count, .cal-more-events, .cal-open-day-events, .cal-day-badge { display: none !important; }
 }
+
 
 
