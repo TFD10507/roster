@@ -61,7 +61,8 @@ body {
   margin: 0;
   padding: 0;
   font-family: 'Roboto', 'Segoe UI', 'Microsoft JhengHei', sans-serif;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background-color: #e7f1ff;
+  // background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   min-height: 100vh;
   color: #333;
   word-break: break-word; // 防止長字在小螢幕破版
@@ -117,4 +118,20 @@ button {
       font-size: 0.9rem;
     }
   }
+}
+
+html, body { height: 100%; }
+body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+
+/* 確保月曆容器有底部間距 */
+app-duty-calendar {
+  display: block;
+  margin-bottom: 2rem !important;
+  padding-bottom: 1rem;
+}
+
+/* 如果上述不生效，用這個備用方案 */
+.calendar-container {
+  margin-bottom: 2rem !important;
+  padding-bottom: 1rem !important;
 }

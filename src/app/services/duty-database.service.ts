@@ -24,6 +24,8 @@ export interface DutyChange {
   changedBy: string;
   changedAt: Timestamp;
   reason?: string;
+  isDeleted?: boolean;
+  deletedAt?: Timestamp;
 }
 
 export interface DutySettings {
@@ -90,10 +92,23 @@ export class DutyDatabaseService {
   async addDutyChange(change: Omit<DutyChange, 'id' | 'changedAt'>): Promise<void> {
     try {
       const changeRef = doc(collection(db, 'dutyChanges'));
-      await setDoc(changeRef, {
-        ...change,
+      
+      // 過濾掉 undefined 值，避免 Firebase 錯誤
+      const cleanedChange: any = {
+        date: change.date,
+        originalPerson: change.originalPerson,
+        newPerson: change.newPerson,
+        dutyType: change.dutyType,
+        changedBy: change.changedBy,
         changedAt: Timestamp.now()
-      });
+      };
+      
+      // 只有當 reason 有值時才加入
+      if (change.reason !== undefined && change.reason !== null) {
+        cleanedChange.reason = change.reason;
+      }
+      
+      await setDoc(changeRef, cleanedChange);
     } catch (error) {
       console.error('新增值班異動失敗:', error);
       throw error;
@@ -145,5 +160,37 @@ export class DutyDatabaseService {
   /** 取得當前使用中的值班異動（排除已刪除的） */
   getActiveDutyChanges(): DutyChange[] {
     return this.dutyChangesSubject.value.filter(change => !(change as any).isDeleted);
+  }
+
+  /** 批量新增值班異動記錄（優化版本） */
+  async addBatchDutyChanges(changes: Omit<DutyChange, 'id' | 'changedAt'>[]): Promise<void> {
+    try {
+      const promises = changes.map(async (change) => {
+        const changeRef = doc(collection(db, 'dutyChanges'));
+        
+        // 過濾掉 undefined 值，避免 Firebase 錯誤
+        const cleanedChange: any = {
+          date: change.date,
+          originalPerson: change.originalPerson,
+          newPerson: change.newPerson,
+          dutyType: change.dutyType,
+          changedBy: change.changedBy,
+          changedAt: Timestamp.now()
+        };
+        
+        // 只有當 reason 有值時才加入
+        if (change.reason !== undefined && change.reason !== null) {
+          cleanedChange.reason = change.reason;
+        }
+        
+        return setDoc(changeRef, cleanedChange);
+      });
+
+      await Promise.all(promises);
+      console.log(`成功批量新增 ${changes.length} 筆值班異動記錄`);
+    } catch (error) {
+      console.error('批量新增值班異動失敗:', error);
+      throw error;
+    }
   }
 }

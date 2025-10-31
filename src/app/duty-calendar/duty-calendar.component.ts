@@ -1,10 +1,13 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Router } from '@angular/router';
+import { MatDialog } from '@angular/material/dialog';
 import {
  CalendarEvent,
  CalendarView
 } from 'angular-calendar';
 import { addDays, startOfMonth, endOfMonth, addMonths, differenceInDays, format } from 'date-fns';
 import { DutyDatabaseService, DutyChange } from '../services/duty-database.service';
+import { DutyChangeDialogComponent, DutyChangeDialogData, DutyChangeResult } from '../duty-change-dialog/duty-change-dialog.component';
 import { Subscription } from 'rxjs';
 
 interface DutyPerson {
@@ -92,10 +95,14 @@ export class DutyCalendarComponent implements OnInit, OnDestroy {
 
  // Firebase 相關屬性
  dutyChanges: DutyChange[] = [];
- currentUser: string = '使用者'; // 可以從登入系統取得
+ currentUser: string = 'User-' + Math.random().toString(36).substr(2, 5); // 簡單的用戶識別
  private subscriptions: Subscription[] = [];
 
- constructor(private dutyDatabaseService: DutyDatabaseService) {}
+ constructor(
+   private dutyDatabaseService: DutyDatabaseService,
+   private router: Router,
+   private dialog: MatDialog
+ ) {}
 
  ngOnInit(): void {
    // 訂閱 Firebase 即時資料
@@ -301,40 +308,16 @@ export class DutyCalendarComponent implements OnInit, OnDestroy {
    const end = endOfMonth(targetDate);
    const days: DutyEvent[] = [];
 
-   // 定義值班排程表（與原有邏輯相同）
-   const dutySchedule = [
-     { startDate: new Date(2025, 9, 20), endDate: new Date(2025, 9, 26), person: 'Bubble' },
-     { startDate: new Date(2025, 9, 27), endDate: new Date(2025, 10, 2), person: 'Alen' },
-     { startDate: new Date(2025, 10, 3), endDate: new Date(2025, 10, 9), person: 'Nico' },
-     { startDate: new Date(2025, 10, 10), endDate: new Date(2025, 10, 16), person: 'Boso' },
-     { startDate: new Date(2025, 10, 17), endDate: new Date(2025, 10, 23), person: 'Lynn' },
-     { startDate: new Date(2025, 10, 24), endDate: new Date(2025, 10, 30), person: 'Miao' },
-     { startDate: new Date(2025, 11, 1), endDate: new Date(2025, 11, 7), person: '小Angela' },
-     { startDate: new Date(2025, 11, 8), endDate: new Date(2025, 11, 14), person: '大Angela' },
-   ];
-
    let current = new Date(start);
    while (current <= end) {
-     let assignedPerson = null;
-
-     for (const schedule of dutySchedule) {
-       if (current >= schedule.startDate && current <= schedule.endDate) {
-         assignedPerson = this.dutyPeople.find(p => p.name === schedule.person);
-         break;
-       }
-     }
-
-     if (!assignedPerson) {
-       const startDate = new Date(2024, 0, 1);
-       const daysSinceStart = Math.floor((current.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
-       const weeksSinceStart = Math.floor(daysSinceStart / 7);
-       const dutyIndex = weeksSinceStart % this.dutyPeople.length;
-       assignedPerson = this.dutyPeople[dutyIndex];
-     }
-
-     if (!assignedPerson) {
-       assignedPerson = this.dutyPeople[0];
-     }
+     // 根據初始點和資料庫人員清單順序計算值班人員
+     const baseDate = new Date(2025, 8, 29); // 2025/9/29 開始 (月份從0開始，所以8月=9月)
+     const yongIndex = this.dutyPeople.findIndex(p => p.name === 'Yong');
+     
+     const daysSinceStart = Math.floor((current.getTime() - baseDate.getTime()) / (24 * 60 * 60 * 1000));
+     const weeksSinceStart = Math.floor(daysSinceStart / 7);
+     const dutyIndex = (yongIndex + weeksSinceStart) % this.dutyPeople.length;
+     const assignedPerson = this.dutyPeople[dutyIndex] || this.dutyPeople[0];
 
      days.push({
        title: assignedPerson.name,
@@ -356,44 +339,16 @@ export class DutyCalendarComponent implements OnInit, OnDestroy {
    const end = endOfMonth(targetDate);
    const days: DutyEvent[] = [];
 
-   // 定義UAT值班排程表（與原有邏輯相同）
-   const uatSchedule = [
-     { startDate: new Date(2025, 9, 17), endDate: new Date(2025, 9, 30), person: 'Yong' },
-     { startDate: new Date(2025, 9, 31), endDate: new Date(2025, 10, 13), person: '77' },
-     { startDate: new Date(2025, 10, 14), endDate: new Date(2025, 10, 27), person: '大Angela' },
-     { startDate: new Date(2025, 10, 28), endDate: new Date(2025, 11, 11), person: 'Jingle' },
-     { startDate: new Date(2025, 11, 12), endDate: new Date(2025, 11, 25), person: 'Goldas' },
-     { startDate: new Date(2025, 11, 26), endDate: new Date(2026, 0, 8), person: 'Alen' },
-     { startDate: new Date(2026, 0, 9), endDate: new Date(2026, 0, 22), person: 'Roy' },
-     { startDate: new Date(2026, 0, 23), endDate: new Date(2026, 1, 5), person: 'Boso' },
-     { startDate: new Date(2026, 1, 6), endDate: new Date(2026, 1, 19), person: 'Eason' },
-     { startDate: new Date(2026, 1, 20), endDate: new Date(2026, 2, 5), person: 'Bubble' },
-     { startDate: new Date(2026, 2, 6), endDate: new Date(2026, 2, 19), person: 'Miao' },
-     { startDate: new Date(2026, 2, 20), endDate: new Date(2026, 3, 2), person: 'Nico' },
-   ];
-
    let current = new Date(start);
    while (current <= end) {
-     let assignedPerson = null;
-
-     for (const schedule of uatSchedule) {
-       if (current >= schedule.startDate && current <= schedule.endDate) {
-         assignedPerson = this.uatDutyPeople.find(p => p.name === schedule.person);
-         break;
-       }
-     }
-
-     if (!assignedPerson) {
-       const startDate = new Date(2025, 9, 17);
-       const daysSinceStart = Math.floor((current.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
-       const sprintsSinceStart = Math.floor(daysSinceStart / 14);
-       const cyclePosition = sprintsSinceStart % this.uatDutyPeople.length;
-       assignedPerson = this.uatDutyPeople[cyclePosition];
-     }
-
-     if (!assignedPerson) {
-       assignedPerson = this.uatDutyPeople[0];
-     }
+     // 根據初始點和資料庫人員清單順序計算UAT值班人員
+     const baseDate = new Date(2025, 9, 3); // 2025/10/3 開始 (月份從0開始，所以9月=10月)
+     const angelaIndex = this.uatDutyPeople.findIndex(p => p.name === '小Angela');
+     
+     const daysSinceStart = Math.floor((current.getTime() - baseDate.getTime()) / (24 * 60 * 60 * 1000));
+     const sprintsSinceStart = Math.floor(daysSinceStart / 14); // 14天為一個sprint
+     const dutyIndex = (angelaIndex + sprintsSinceStart) % this.uatDutyPeople.length;
+     const assignedPerson = this.uatDutyPeople[dutyIndex] || this.uatDutyPeople[0];
 
      days.push({
        title: `${assignedPerson.name} (UAT)`,
@@ -489,44 +444,17 @@ goToToday() {
    const end = endOfMonth(this.viewDate);
    const days: DutyEvent[] = [];
 
-   // 定義值班排程表
-   const dutySchedule = [
-     { startDate: new Date(2025, 9, 20), endDate: new Date(2025, 9, 26), person: 'Bubble' },
-     { startDate: new Date(2025, 9, 27), endDate: new Date(2025, 10, 2), person: 'Alen' },
-     { startDate: new Date(2025, 10, 3), endDate: new Date(2025, 10, 9), person: 'Nico' },
-     { startDate: new Date(2025, 10, 10), endDate: new Date(2025, 10, 16), person: 'Boso' },
-     { startDate: new Date(2025, 10, 17), endDate: new Date(2025, 10, 23), person: 'Lynn' },
-     { startDate: new Date(2025, 10, 24), endDate: new Date(2025, 10, 30), person: 'Miao' },
-     { startDate: new Date(2025, 11, 1), endDate: new Date(2025, 11, 7), person: '小Angela' },
-     { startDate: new Date(2025, 11, 8), endDate: new Date(2025, 11, 14), person: '大Angela' },
-   ];
-
    let current = new Date(start);
 
    while (current <= end) {
-     // 找到當前日期對應的值班人員
-     let assignedPerson = null;
-
-     for (const schedule of dutySchedule) {
-       if (current >= schedule.startDate && current <= schedule.endDate) {
-         assignedPerson = this.dutyPeople.find(p => p.name === schedule.person);
-         break;
-       }
-     }
-
-     // 如果沒有找到指定的值班人員，使用預設循環邏輯
-     if (!assignedPerson) {
-       const startDate = new Date(2024, 0, 1);
-       const daysSinceStart = Math.floor((current.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
-       const weeksSinceStart = Math.floor(daysSinceStart / 7);
-       const dutyIndex = weeksSinceStart % this.dutyPeople.length;
-       assignedPerson = this.dutyPeople[dutyIndex];
-     }
-
-     // 安全檢查，確保 assignedPerson 存在
-     if (!assignedPerson) {
-       assignedPerson = this.dutyPeople[0]; // 使用第一個人作為預設
-     }
+     // 根據初始點和資料庫人員清單順序計算值班人員
+     const baseDate = new Date(2025, 8, 29); // 2025/9/29 開始 (月份從0開始，所以8月=9月)
+     const yongIndex = this.dutyPeople.findIndex(p => p.name === 'Yong');
+     
+     const daysSinceStart = Math.floor((current.getTime() - baseDate.getTime()) / (24 * 60 * 60 * 1000));
+     const weeksSinceStart = Math.floor(daysSinceStart / 7);
+     const dutyIndex = (yongIndex + weeksSinceStart) % this.dutyPeople.length;
+     const assignedPerson = this.dutyPeople[dutyIndex] || this.dutyPeople[0];
 
      days.push({
        title: assignedPerson.name,
@@ -551,53 +479,17 @@ goToToday() {
    const end = endOfMonth(this.viewDate);
    const days: DutyEvent[] = [];
 
-   // 定義UAT值班排程表（2週為一個sprint，有特殊交換安排）
-   const uatSchedule = [
-     { startDate: new Date(2025, 9, 17), endDate: new Date(2025, 9, 30), person: 'Yong' },      // 10/17-10/30 (大Angela跟Yong交換)
-     { startDate: new Date(2025, 9, 31), endDate: new Date(2025, 10, 13), person: '77' }, // 10/31-11/13 (大Angela跟77交換)
-     { startDate: new Date(2025, 10, 14), endDate: new Date(2025, 10, 27), person: '大Angela' },      // 11/14-11/27
-     { startDate: new Date(2025, 10, 28), endDate: new Date(2025, 11, 11), person: 'Jingle' },  // 11/28-12/11
-     { startDate: new Date(2025, 11, 12), endDate: new Date(2025, 11, 25), person: 'Goldas' },  // 12/12-12/25
-     { startDate: new Date(2025, 11, 26), endDate: new Date(2026, 0, 8), person: 'Alen' },      // 12/26-1/8
-     { startDate: new Date(2026, 0, 9), endDate: new Date(2026, 0, 22), person: 'Roy' },        // 1/9-1/22
-     { startDate: new Date(2026, 0, 23), endDate: new Date(2026, 1, 5), person: 'Boso' },       // 1/23-2/5
-     { startDate: new Date(2026, 1, 6), endDate: new Date(2026, 1, 19), person: 'Eason' },      // 2/6-2/19
-     { startDate: new Date(2026, 1, 20), endDate: new Date(2026, 2, 5), person: 'Bubble' },     // 2/20-3/5
-     { startDate: new Date(2026, 2, 6), endDate: new Date(2026, 2, 19), person: 'Miao' },   // 3/6-3/19
-     { startDate: new Date(2026, 2, 20), endDate: new Date(2026, 3, 2), person: 'Nico' },       // 3/20-4/2
-     // 之後會自動按照清單順序循環：Lynn → 小Angela → 大Angela → Yong → 77 → Jingle → Goldas → Alen → Roy → Boso → Eason → Bubble → Miao → Nico
-   ];
-
    let current = new Date(start);
 
    while (current <= end) {
-     // 找到當前日期對應的值班人員
-     let assignedPerson = null;
-
-     for (const schedule of uatSchedule) {
-       if (current >= schedule.startDate && current <= schedule.endDate) {
-         assignedPerson = this.uatDutyPeople.find(p => p.name === schedule.person);
-         break;
-       }
-     }
-
-     // 如果沒有找到指定的值班人員，使用UAT人員清單循環邏輯
-     if (!assignedPerson) {
-       const startDate = new Date(2025, 9, 17); // UAT排程開始日期 (10/17)
-       const daysSinceStart = Math.floor((current.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
-       const sprintsSinceStart = Math.floor(daysSinceStart / 14); // 14天為一個sprint
-
-       // 按照完整一輪的順序計算
-       // 前面已定義的sprint: Yong(0) → 大Angela(1) → 77(2) → Jingle(3) → Goldas(4) → Alen(5) → Roy(6) → Boso(7) → Eason(8) → Bubble(9) → Miao(10) → Nico(11)
-       // 之後循環: Lynn(12) → 小Angela(13) → 大Angela(14) → Yong(15) ...
-       const cyclePosition = sprintsSinceStart % this.uatDutyPeople.length;
-       assignedPerson = this.uatDutyPeople[cyclePosition];
-     }
-
-     // 安全檢查，確保 assignedPerson 存在
-     if (!assignedPerson) {
-       assignedPerson = this.uatDutyPeople[0]; // 使用第一個人作為預設
-     }
+     // 根據初始點和資料庫人員清單順序計算UAT值班人員
+     const baseDate = new Date(2025, 9, 3); // 2025/10/3 開始 (月份從0開始，所以9月=10月)
+     const angelaIndex = this.uatDutyPeople.findIndex(p => p.name === '小Angela');
+     
+     const daysSinceStart = Math.floor((current.getTime() - baseDate.getTime()) / (24 * 60 * 60 * 1000));
+     const sprintsSinceStart = Math.floor(daysSinceStart / 14); // 14天為一個sprint
+     const dutyIndex = (angelaIndex + sprintsSinceStart) % this.uatDutyPeople.length;
+     const assignedPerson = this.uatDutyPeople[dutyIndex] || this.uatDutyPeople[0];
 
      days.push({
        title: `${assignedPerson.name} (UAT)`,
@@ -616,11 +508,11 @@ goToToday() {
    this.uatEvents = this.applyDutyChanges(this.uatEvents);
  }
 
- /** 點擊事件處理（加入 Firebase 儲存） */
+ /** 點擊事件處理（使用 Material Dialog） */
  async handleEventClick(clickedEvent: CalendarEvent): Promise<void> {
    const event = clickedEvent as DutyEvent;
    const current = event.dutyPerson ?? event.title ?? '';
-   const dateString = format(new Date(event.start!), 'yyyy-MM-dd');
+   const clickedDate = new Date(event.start!);
 
    // 跳過假期
    if (current === '假期') {
@@ -628,61 +520,141 @@ goToToday() {
      return;
    }
 
+   // 找到當前人員負責的整個期間
+   const dutyPeriod = this.findDutyPeriod(clickedDate, current);
+   if (!dutyPeriod) {
+     this.showToastNotification('無法確定值班期間', 'warning', 2000);
+     return;
+   }
+
    const peopleList = this.currentDutyType === 'uat' ? this.uatDutyPeople : this.dutyPeople;
    const dutyTypeName = this.currentDutyType === 'uat' ? 'UAT測資小天使' : '一般值班';
 
    if (!peopleList || peopleList.length === 0) {
-     alert('人員清單載入中，請稍後再試');
+     this.showToastNotification('人員清單載入中，請稍後再試', 'warning', 2000);
      return;
    }
 
-   const options = peopleList.map((person, index) => `${index + 1}. ${person?.name || '未知'}`).join('\n');
-   const message = `目前${dutyTypeName}：${current}\n\n請選擇新的值班人員：\n${options}\n\n請輸入數字 (1-${peopleList.length}) 或取消：`;
+   // 準備對話框資料
+   const periodText = `${format(dutyPeriod.startDate, 'yyyy/MM/dd')} ~ ${format(dutyPeriod.endDate, 'yyyy/MM/dd')}`;
+   const totalDays = Math.ceil((dutyPeriod.endDate.getTime() - dutyPeriod.startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+   const clickedDateText = format(clickedDate, 'yyyy/MM/dd');
 
-   const input = prompt(message);
-   if (input === null) return;
+   const dialogData: DutyChangeDialogData = {
+     currentPerson: current,
+     dutyTypeName: dutyTypeName,
+     peopleList: peopleList,
+     clickedDate: clickedDateText,
+     periodText: periodText,
+     totalDays: totalDays,
+     allowPeriodSelection: true
+   };
 
-   const selectedIndex = parseInt(input.trim()) - 1;
-   if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= peopleList.length) {
-     alert(`請輸入 1 到 ${peopleList.length} 之間的數字`);
-     return;
-   }
+   // 開啟對話框
+   const dialogRef = this.dialog.open(DutyChangeDialogComponent, {
+     width: '600px',
+     maxWidth: '95vw',
+     maxHeight: '90vh',
+     data: dialogData,
+     disableClose: false,
+     autoFocus: true
+   });
 
-   const selectedPerson = peopleList[selectedIndex];
-   if (!selectedPerson) {
-     alert('選擇的人員無效，請重新選擇');
-     return;
-   }
+   // 處理對話框結果
+   dialogRef.afterClosed().subscribe(async (result: DutyChangeResult) => {
+     if (!result) {
+       return; // 使用者取消
+     }
 
-   // 如果選擇的是同一個人，就不需要異動
-   if (selectedPerson.name === current) {
-     this.showToastNotification('未變更值班人員', 'info', 2000);
-     return;
-   }
+     const selectedPerson = result.selectedPerson;
+     const isWholePeriod = result.isWholePeriod;
+     const changedBy = result.changedBy;
 
-   // 詢問異動原因
-   const reason = prompt('請輸入異動原因（選填）：') || '';
+     try {
+       if (isWholePeriod) {
+         // 批量更新整個期間的所有日期
+         try {
+           await this.updateDutyPeriod(dutyPeriod, current, selectedPerson.name, changedBy);
+           
+           this.showToastNotification(
+             `✅ 已將 ${periodText} 的${dutyTypeName}從 ${current} 全部更換為 ${selectedPerson.name}`,
+             'success',
+             4000
+           );
+         } catch (error: any) {
+           console.error('批量更新失敗:', error);
+           let errorMessage = '❌ 批量更新失敗：';
+           
+           if (error?.code) {
+             switch (error.code) {
+               case 'permission-denied':
+                 errorMessage += '權限不足，請檢查 Firebase 安全規則';
+                 break;
+               case 'network-request-failed':
+                 errorMessage += '網路連線失敗，請檢查網路狀態';
+                 break;
+               case 'unavailable':
+                 errorMessage += 'Firebase 服務暫時無法使用';
+                 break;
+               default:
+                 errorMessage += `${error.code} - ${error.message}`;
+             }
+           } else {
+             errorMessage += error?.message || '未知錯誤';
+           }
+           
+           this.showToastNotification(errorMessage, 'warning', 5000);
+           throw error;
+         }
+       } else {
+         // 只更新單天
+         try {
+           const changeData: any = {
+             date: format(clickedDate, 'yyyy-MM-dd'),
+             originalPerson: current,
+             newPerson: selectedPerson.name,
+             dutyType: this.currentDutyType,
+             changedBy: changedBy || this.currentUser
+           };
+           
+           await this.dutyDatabaseService.addDutyChange(changeData);
 
-   try {
-     // 儲存到 Firebase
-     await this.dutyDatabaseService.addDutyChange({
-       date: dateString,
-       originalPerson: current,
-       newPerson: selectedPerson.name,
-       dutyType: this.currentDutyType,
-       changedBy: this.currentUser,
-       reason: reason
-     });
-
-     this.showToastNotification(
-       `✅ 已將 ${dateString} 的${dutyTypeName}從 ${current} 改為 ${selectedPerson.name}`,
-       'success',
-       3000
-     );
-   } catch (error) {
-     console.error('儲存異動失敗:', error);
-     this.showToastNotification('❌ 儲存失敗，請檢查網路連線後重試', 'warning', 3000);
-   }
+           this.showToastNotification(
+             `✅ 已將 ${clickedDateText} 的${dutyTypeName}從 ${current} 更換為 ${selectedPerson.name}`,
+             'success',
+             3000
+           );
+         } catch (error: any) {
+           console.error('詳細錯誤資訊:', error);
+           let errorMessage = '❌ 儲存失敗：';
+           
+           if (error?.code) {
+             switch (error.code) {
+               case 'permission-denied':
+                 errorMessage += '權限不足，請檢查 Firebase 安全規則';
+                 break;
+               case 'network-request-failed':
+                 errorMessage += '網路連線失敗，請檢查網路狀態';
+                 break;
+               case 'unavailable':
+                 errorMessage += 'Firebase 服務暫時無法使用';
+                 break;
+               default:
+                 errorMessage += `${error.code} - ${error.message}`;
+             }
+           } else {
+             errorMessage += error?.message || '未知錯誤';
+           }
+           
+           this.showToastNotification(errorMessage, 'warning', 5000);
+           throw error;
+         }
+       }
+     } catch (error) {
+       console.error('儲存異動失敗:', error);
+       this.showToastNotification('❌ 儲存失敗，請檢查網路連線後重試', 'warning', 3000);
+     }
+   });
  }
  /** 顯示值班人員清單 */
  showDutyList(): void {
@@ -724,44 +696,30 @@ goToToday() {
    });
  }
 
- /** 顯示異動歷史 */
+ /** 顯示異動歷史（導向新頁面） */
  showDutyChangeHistory(): void {
-   if (this.dutyChanges.length === 0) {
-     alert('目前沒有值班異動記錄');
-     return;
-   }
-
-   const history = this.dutyChanges
-     .slice(0, 10) // 只顯示最近10筆
-     .map(change => {
-       const date = change.date;
-       const type = change.dutyType === 'uat' ? 'UAT' : '一般';
-       const reason = change.reason ? ` (${change.reason})` : '';
-       const changedAt = change.changedAt.toDate().toLocaleString('zh-TW');
-       return `📅 ${date} ${type}值班\n👤 ${change.originalPerson} → ${change.newPerson}\n👨‍💻 by ${change.changedBy}${reason}\n🕐 ${changedAt}`;
-     })
-     .join('\n\n');
-
-   alert(`最近的值班異動記錄：\n\n${history}`);
+   this.router.navigate(['/history']);
  }
 
- /** 儲存當前人員順序到 Firebase */
- async savePeopleOrderToDatabase(): Promise<void> {
-   try {
-     const normalOrder = this.dutyPeople.map(p => p.name);
-     const uatOrder = this.uatDutyPeople.map(p => p.name);
-     
-     await this.dutyDatabaseService.updateDutyOrder(
-       normalOrder,
-       uatOrder,
-       this.currentUser
-     );
-     
-     this.showToastNotification('✅ 人員順序已儲存到雲端', 'success', 3000);
-   } catch (error) {
-     console.error('儲存人員順序失敗:', error);
-     this.showToastNotification('❌ 儲存失敗，請重試', 'warning', 3000);
-   }
+ /** 查看資料庫內容（除錯用） */
+ showDatabaseContent(): void {
+   console.log('=== 資料庫內容 ===');
+   console.log('值班異動記錄:', this.dutyChanges);
+   
+   // 顯示統計資訊
+   const totalChanges = this.dutyChanges.length;
+   const normalChanges = this.dutyChanges.filter(c => c.dutyType === 'normal').length;
+   const uatChanges = this.dutyChanges.filter(c => c.dutyType === 'uat').length;
+   
+   const summary = `📊 資料庫統計資訊：
+   
+總異動記錄：${totalChanges} 筆
+一般值班異動：${normalChanges} 筆  
+UAT值班異動：${uatChanges} 筆
+
+詳細資料請查看瀏覽器開發者工具的 Console`;
+   
+   alert(summary);
  }
 
  /** 切換值班類型 */
@@ -779,6 +737,89 @@ goToToday() {
  getDutyPersonName(event: CalendarEvent): string {
    const dutyEvent = event as DutyEvent;
    return dutyEvent.dutyPerson || event.title || '';
+ }
+
+ /** 找到指定日期和人員的整個值班期間 */
+ findDutyPeriod(clickedDate: Date, personName: string): { startDate: Date; endDate: Date; } | null {
+   // 現在直接使用循環邏輯計算期間
+   if (this.currentDutyType === 'uat') {
+     return this.calculateUATPeriod(clickedDate, personName);
+   } else {
+     return this.calculateNormalPeriod(clickedDate, personName);
+   }
+ }
+
+ /** 取得一般值班排程表 */
+ private getNormalSchedule() {
+   // 現在使用動態計算，不再需要固定排程表
+   return [];
+ }
+
+ /** 取得UAT值班排程表 */
+ private getUATSchedule() {
+   // 現在使用動態計算，不再需要固定排程表
+   return [];
+ }
+
+ /** 計算一般值班的期間（週為單位） */
+ private calculateNormalPeriod(clickedDate: Date, personName: string): { startDate: Date; endDate: Date; } | null {
+   const baseDate = new Date(2025, 8, 29); // 2025/9/29 開始 (月份從0開始，所以8月=9月)
+   const daysSinceStart = Math.floor((clickedDate.getTime() - baseDate.getTime()) / (24 * 60 * 60 * 1000));
+   const weeksSinceStart = Math.floor(daysSinceStart / 7);
+   
+   // 找到該週的開始日期
+   const weekStartDate = addDays(baseDate, weeksSinceStart * 7);
+   const weekEndDate = addDays(weekStartDate, 6);
+
+   return {
+     startDate: weekStartDate,
+     endDate: weekEndDate
+   };
+ }
+
+ /** 計算UAT值班的期間（2週為單位） */
+ private calculateUATPeriod(clickedDate: Date, personName: string): { startDate: Date; endDate: Date; } | null {
+   const baseDate = new Date(2025, 9, 3); // 2025/10/3 開始 (月份從0開始，所以9月=10月)
+   const daysSinceStart = Math.floor((clickedDate.getTime() - baseDate.getTime()) / (24 * 60 * 60 * 1000));
+   const sprintsSinceStart = Math.floor(daysSinceStart / 14);
+   
+   // 找到該sprint的開始日期
+   const sprintStartDate = addDays(baseDate, sprintsSinceStart * 14);
+   const sprintEndDate = addDays(sprintStartDate, 13);
+
+   return {
+     startDate: sprintStartDate,
+     endDate: sprintEndDate
+   };
+ }
+
+ /** 更新整個值班期間 */
+ async updateDutyPeriod(
+   period: { startDate: Date; endDate: Date; }, 
+   originalPerson: string, 
+   newPerson: string,
+   changedBy?: string
+ ): Promise<void> {
+   const changes: Omit<DutyChange, 'id' | 'changedAt'>[] = [];
+   
+   let current = new Date(period.startDate);
+   while (current <= period.endDate) {
+     const dateString = format(current, 'yyyy-MM-dd');
+     
+     // 收集所有異動記錄
+     changes.push({
+       date: dateString,
+       originalPerson: originalPerson,
+       newPerson: newPerson,
+       dutyType: this.currentDutyType,
+       changedBy: changedBy || this.currentUser
+     });
+     
+     current = addDays(current, 1);
+   }
+
+   // 使用批量操作一次性提交所有異動
+   await this.dutyDatabaseService.addBatchDutyChanges(changes);
  }
 }
 

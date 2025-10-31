@@ -1,0 +1,134 @@
+<div class="duty-change-dialog">
+  <h2 mat-dialog-title class="dialog-title">
+    <mat-icon class="title-icon">edit_calendar</mat-icon>
+    更換{{ data.dutyTypeName }}
+  </h2>
+
+  <mat-dialog-content class="dialog-content">
+    <!-- 當前資訊顯示 -->
+    <div class="current-info">
+      <div class="info-item">
+        <mat-icon class="info-icon">person</mat-icon>
+        <span class="info-label">目前負責人：</span>
+        <span class="info-value current-person">{{ data.currentPerson }}</span>
+      </div>
+      <div class="info-item">
+        <mat-icon class="info-icon">event</mat-icon>
+        <span class="info-label">點擊日期：</span>
+        <span class="info-value">{{ data.clickedDate }}</span>
+      </div>
+      <div class="info-item" *ngIf="data.periodText">
+        <mat-icon class="info-icon">date_range</mat-icon>
+        <span class="info-label">負責期間：</span>
+        <span class="info-value">{{ data.periodText }} ({{ data.totalDays }}天)</span>
+      </div>
+    </div>
+
+    <!-- 範圍選擇（如果支援期間選擇） -->
+    <div class="range-selection" *ngIf="data.allowPeriodSelection">
+      <h3 class="section-title">
+        <mat-icon>settings</mat-icon>
+        更改範圍
+      </h3>
+      <mat-radio-group [(ngModel)]="rangeType" class="range-options">
+        <mat-radio-button value="single" class="range-option">
+          <div class="option-content">
+            <div class="option-title">單天更改</div>
+            <div class="option-desc">只更改 {{ data.clickedDate }}</div>
+          </div>
+        </mat-radio-button>
+        <mat-radio-button value="period" class="range-option" *ngIf="data.periodText">
+          <div class="option-content">
+            <div class="option-title">整個期間更改</div>
+            <div class="option-desc">更改整個期間 {{ data.periodText }} ({{ data.totalDays }}天)</div>
+          </div>
+        </mat-radio-button>
+      </mat-radio-group>
+    </div>
+
+    <!-- 人員選擇 -->
+    <div class="person-selection">
+      <h3 class="section-title">
+        <mat-icon>people</mat-icon>
+        選擇新的負責人員
+      </h3>
+      <mat-radio-group [(ngModel)]="selectedPersonIndex" class="person-options">
+        <mat-radio-button 
+          *ngFor="let person of data.peopleList; let i = index" 
+          [value]="i" 
+          class="person-option"
+          [class.current-person-option]="person.name === data.currentPerson">
+          <div class="person-content">
+            <div class="person-avatar" [style.background-color]="person.color?.primary">
+              {{ person.name.charAt(0) }}
+            </div>
+            <div class="person-info">
+              <div class="person-name">{{ person.name }}</div>
+              <div class="person-badge" *ngIf="person.name === data.currentPerson">目前負責人</div>
+            </div>
+          </div>
+        </mat-radio-button>
+      </mat-radio-group>
+    </div>
+
+    <!-- 異動人員 -->
+    <div class="changed-by-section">
+      <h3 class="section-title">
+        <mat-icon>person_edit</mat-icon>
+        異動人員 <span class="optional"></span>
+      </h3>
+      <mat-form-field appearance="outline" class="changed-by-field">
+        <mat-label>請輸入異動人員姓名</mat-label>
+        <input 
+          matInput 
+          [(ngModel)]="changedBy" 
+          maxlength="50">
+        <mat-hint>{{ changedBy.length }}/50</mat-hint>
+      </mat-form-field>
+    </div>
+
+    <!-- 預覽確認 -->
+    <div class="preview-section" *ngIf="isValid()">
+      <mat-card class="preview-card">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="preview-icon">preview</mat-icon>
+          <mat-card-title>變更預覽</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="change-preview">
+            <div class="change-from">
+              <span class="change-label">原負責人：</span>
+              <span class="person-chip current">{{ data.currentPerson }}</span>
+            </div>
+            <mat-icon class="arrow-icon">arrow_forward</mat-icon>
+            <div class="change-to">
+              <span class="change-label">新負責人：</span>
+              <span class="person-chip new">{{ getSelectedPersonName() }}</span>
+            </div>
+          </div>
+          <div class="change-scope">
+            <mat-icon class="scope-icon">schedule</mat-icon>
+            <span *ngIf="rangeType === 'single'">影響範圍：{{ data.clickedDate }} (1天)</span>
+            <span *ngIf="rangeType === 'period'">影響範圍：{{ data.periodText }} ({{ data.totalDays }}天)</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </mat-dialog-content>
+
+  <mat-dialog-actions class="dialog-actions">
+    <button mat-button (click)="onCancel()" class="cancel-btn">
+      <mat-icon>close</mat-icon>
+      取消
+    </button>
+    <button 
+      mat-raised-button 
+      color="primary" 
+      (click)="onConfirm()" 
+      [disabled]="!isValid()"
+      class="confirm-btn">
+      <mat-icon>check</mat-icon>
+      確認更換
+    </button>
+  </mat-dialog-actions>
+</div>

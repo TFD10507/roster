@@ -84,7 +84,7 @@
 ### 快速開始
 
 ```bash
-# clone專案
+# 克隆專案
 git clone https://github.com/TFD10507/roster.git
 cd roster
 

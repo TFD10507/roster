@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app';
+import { getAnalytics } from "firebase/analytics";
 import { getFirestore } from 'firebase/firestore';
 
 // ⚠️ 重要：請前往 Firebase Console 建立專案並取得您自己的配置
@@ -10,22 +11,22 @@ import { getFirestore } from 'firebase/firestore';
 // 5. 將下方的範例配置替換為您自己的配置
 
 const firebaseConfig = {
-  // 請替換為您自己的 Firebase 專案配置
-  apiKey: "your-api-key-here",
-  authDomain: "your-project.firebaseapp.com", 
-  projectId: "your-project-id-here",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "your-app-id-here"
+  apiKey: "AIzaSyDQXHBX_qTnuRdwp-3IgVe2_VZIs1MwyW8",
+  authDomain: "roster-c875a.firebaseapp.com",
+  projectId: "roster-c875a",
+  storageBucket: "roster-c875a.firebasestorage.app",
+  messagingSenderId: "547478016913",
+  appId: "1:547478016913:web:7c1fd9bc35d353f24b8030",
+  measurementId: "G-WYPSH8KWET"
 };
 
 // 檢查是否已正確配置
-if (firebaseConfig.apiKey === "your-api-key-here") {
+if (firebaseConfig.apiKey === "AIzaSyDQXHBX_qTnuRdwp-3IgVe2_VZIs1MwyW8") {
   console.warn('⚠️ 請先設定 Firebase 配置！請查看 firebase.config.ts 檔案中的說明。');
 }
 
 // 初始化 Firebase
 const app = initializeApp(firebaseConfig);
-
+const analytics = getAnalytics(app);
 // 初始化 Firestore
 export const db = getFirestore(app);

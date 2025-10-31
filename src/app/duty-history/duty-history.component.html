@@ -1,0 +1,155 @@
+<div class="duty-history-container">
+  <!-- 頁面標題 -->
+  <div class="page-header">
+    <div class="header-left">
+      <button class="back-btn" (click)="goBack()">
+        <span class="back-icon">←</span>
+        回到值班日曆
+      </button>
+    </div>
+    <h1 class="page-title">值班異動歷史</h1>
+    <div class="header-right">
+      <button class="export-btn" (click)="exportToCSV()" *ngIf="filteredChanges.length > 0">
+        📥 匯出 CSV
+      </button>
+    </div>
+  </div>
+
+  <!-- 篩選工具列 -->
+  <div class="filter-toolbar">
+    <div class="filter-group">
+      <label>值班類型：</label>
+      <select [(ngModel)]="filterType" (change)="applyFilters()">
+        <option value="all">全部</option>
+        <option value="normal">一般值班</option>
+        <option value="uat">UAT測資</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label>人員搜尋：</label>
+      <input type="text" 
+             [(ngModel)]="filterPerson" 
+             (input)="applyFilters()" 
+             placeholder="輸入人員姓名...">
+    </div>
+
+    <div class="filter-group">
+      <label>日期月份：</label>
+      <input type="month" 
+             [(ngModel)]="filterDateRange" 
+             (change)="applyFilters()">
+    </div>
+
+    <div class="filter-group">
+      <label>排序：</label>
+      <select [(ngModel)]="sortBy" (change)="applyFilters()">
+        <option value="changeTime">異動時間</option>
+        <option value="date">值班日期</option>
+        <option value="person">人員姓名</option>
+      </select>
+      <select [(ngModel)]="sortOrder" (change)="applyFilters()">
+        <option value="desc">遞減</option>
+        <option value="asc">遞增</option>
+      </select>
+    </div>
+
+    <div class="filter-actions">
+      <button class="clear-btn" (click)="clearFilters()">清除篩選</button>
+    </div>
+  </div>
+
+  <!-- 統計資訊 -->
+  <div class="stats-bar">
+    <div class="stats-item">
+      <span class="stats-label">總異動記錄：</span>
+      <span class="stats-value">{{ dutyChanges.length }}</span>
+    </div>
+    <div class="stats-item">
+      <span class="stats-label">篩選結果：</span>
+      <span class="stats-value">{{ filteredChanges.length }}</span>
+    </div>
+    <div class="stats-item">
+      <span class="stats-label">一般值班：</span>
+      <span class="stats-value">{{ (dutyChanges | filter:'dutyType':'normal').length || 0 }}</span>
+    </div>
+    <div class="stats-item">
+      <span class="stats-label">UAT測資：</span>
+      <span class="stats-value">{{ (dutyChanges | filter:'dutyType':'uat').length || 0 }}</span>
+    </div>
+  </div>
+
+  <!-- 異動記錄表格 -->
+  <div class="table-container" *ngIf="filteredChanges.length > 0; else noDataTemplate">
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>值班日期</th>
+          <th>類型</th>
+          <th>原負責人</th>
+          <th>新負責人</th>
+          <th>異動者</th>
+          <th>異動時間</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let change of getPaginatedChanges(); let i = index" 
+            [class.even-row]="i % 2 === 0">
+          <td class="date-cell">{{ formatDate(change.date) }}</td>
+          <td class="type-cell">
+            <span class="duty-type-badge" 
+                  [class.normal-type]="change.dutyType === 'normal'"
+                  [class.uat-type]="change.dutyType === 'uat'">
+              {{ getDutyTypeName(change.dutyType) }}
+            </span>
+          </td>
+          <td class="person-cell original">{{ change.originalPerson }}</td>
+          <td class="person-cell new">
+            <span class="arrow">→</span>
+            {{ change.newPerson }}
+          </td>
+          <td class="changer-cell">{{ change.changedBy }}</td>
+          <td class="time-cell">{{ formatDateTime(change.changedAt) }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 無資料顯示 -->
+  <ng-template #noDataTemplate>
+    <div class="no-data">
+      <div class="no-data-icon">📋</div>
+      <div class="no-data-message">
+        <h3>目前沒有符合條件的異動記錄</h3>
+        <p>調整篩選條件或清除篩選來查看更多資料</p>
+      </div>
+    </div>
+  </ng-template>
+
+  <!-- 分頁控制 -->
+  <div class="pagination" *ngIf="totalPages > 1">
+    <button class="page-btn" 
+            [disabled]="currentPage === 1" 
+            (click)="changePage(currentPage - 1)">
+      上一頁
+    </button>
+
+    <button *ngFor="let page of getPageNumbers()" 
+            class="page-btn" 
+            [class.active]="page === currentPage"
+            (click)="changePage(page)">
+      {{ page }}
+    </button>
+
+    <button class="page-btn" 
+            [disabled]="currentPage === totalPages" 
+            (click)="changePage(currentPage + 1)">
+      下一頁
+    </button>
+
+    <div class="page-info">
+      第 {{ currentPage }} 頁，共 {{ totalPages }} 頁
+      ({{ filteredChanges.length }} 筆記錄)
+    </div>
+  </div>
+</div>
