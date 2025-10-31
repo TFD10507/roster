@@ -52,9 +52,9 @@ export class DutyDatabaseService {
     if (this.isInitialized) return;
     
     try {
-      // 監聽值班異動記錄
+      // 監聽值班異動記錄（移除數量限制以確保獲取所有記錄）
       const changesRef = collection(db, 'dutyChanges');
-      const changesQuery = query(changesRef, orderBy('changedAt', 'desc'), limit(50));
+      const changesQuery = query(changesRef, orderBy('changedAt', 'desc'));
       
       onSnapshot(changesQuery, (snapshot) => {
         const changes: DutyChange[] = [];
@@ -187,7 +187,6 @@ export class DutyDatabaseService {
       });
 
       await Promise.all(promises);
-      console.log(`成功批量新增 ${changes.length} 筆值班異動記錄`);
     } catch (error) {
       console.error('批量新增值班異動失敗:', error);
       throw error;

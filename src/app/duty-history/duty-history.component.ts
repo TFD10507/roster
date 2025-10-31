@@ -45,7 +45,8 @@ export class DutyHistoryComponent implements OnInit, OnDestroy {
   /** 載入異動記錄 */
   loadDutyChanges(): void {
     this.subscription = this.dutyDatabaseService.getDutyChanges().subscribe(changes => {
-      this.dutyChanges = changes;
+      // 只顯示有效的（未刪除的）記錄
+      this.dutyChanges = changes.filter(change => !change.isDeleted);
       this.applyFilters();
     });
   }

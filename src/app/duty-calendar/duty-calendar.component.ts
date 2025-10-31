@@ -222,7 +222,6 @@ export class DutyCalendarComponent implements OnInit, OnDestroy {
      this.showConflictAlert(upcomingConflicts);
    } else {
      // 檢查是否有更遠期的衝突
-     console.log(conflicts);
      const allFutureConflicts = conflicts.filter(conflict => conflict.daysUntilConflict > 14);
      if (allFutureConflicts.length > 0) {
        // 找到最近的衝突
@@ -667,13 +666,21 @@ goToToday() {
 
  /** 套用 Firebase 中的值班異動 */
  private applyDutyChanges(events: DutyEvent[]): DutyEvent[] {
+   
+   const availableChanges = this.dutyChanges.filter(c => c.dutyType === this.currentDutyType && !c.isDeleted);
+  
    return events.map(event => {
      const dateString = format(new Date(event.start!), 'yyyy-MM-dd');
+     
+     // 只使用有效的（未刪除的）異動記錄
      const change = this.dutyChanges.find(c => 
-       c.date === dateString && c.dutyType === this.currentDutyType
+       c.date === dateString && 
+       c.dutyType === this.currentDutyType &&
+       !c.isDeleted // 排除已刪除的記錄
      );
 
      if (change) {
+       
        // 找到對應的人員顏色
        const peopleList = this.currentDutyType === 'uat' ? this.uatDutyPeople : this.dutyPeople;
        const newPerson = peopleList.find(p => p.name === change.newPerson);
@@ -689,6 +696,8 @@ goToToday() {
              secondary: newPerson.color.secondary 
            }
          };
+       } else {
+         console.warn(`找不到人員: ${change.newPerson}`);
        }
      }
 
@@ -699,27 +708,6 @@ goToToday() {
  /** 顯示異動歷史（導向新頁面） */
  showDutyChangeHistory(): void {
    this.router.navigate(['/history']);
- }
-
- /** 查看資料庫內容（除錯用） */
- showDatabaseContent(): void {
-   console.log('=== 資料庫內容 ===');
-   console.log('值班異動記錄:', this.dutyChanges);
-   
-   // 顯示統計資訊
-   const totalChanges = this.dutyChanges.length;
-   const normalChanges = this.dutyChanges.filter(c => c.dutyType === 'normal').length;
-   const uatChanges = this.dutyChanges.filter(c => c.dutyType === 'uat').length;
-   
-   const summary = `📊 資料庫統計資訊：
-   
-總異動記錄：${totalChanges} 筆
-一般值班異動：${normalChanges} 筆  
-UAT值班異動：${uatChanges} 筆
-
-詳細資料請查看瀏覽器開發者工具的 Console`;
-   
-   alert(summary);
  }
 
  /** 切換值班類型 */
@@ -793,6 +781,58 @@ UAT值班異動：${uatChanges} 筆
    };
  }
 
+ /** 找到指定人員在特定時間範圍內的值班期間 */
+ private findPersonDutyPeriodInRange(
+   personName: string, 
+   rangeStart: Date, 
+   rangeEnd: Date
+ ): { startDate: Date; endDate: Date; } | null {
+   
+   // 在指定範圍內逐日檢查，找到該人員負責的值班期間
+   let current = new Date(rangeStart);
+   
+   while (current <= rangeEnd) {
+     // 計算這一天原本應該是誰值班
+     const originalPerson = this.calculateOriginalDutyPerson(current);
+     
+     if (originalPerson === personName) {
+       // 找到了該人員值班的日期，現在確定整個期間
+       if (this.currentDutyType === 'uat') {
+         return this.calculateUATPeriod(current, personName);
+       } else {
+         return this.calculateNormalPeriod(current, personName);
+       }
+     }
+     
+     current = addDays(current, 1);
+   }
+   
+   return null;
+ }
+
+ /** 計算指定日期原本應該由誰值班（不考慮異動記錄） */
+ private calculateOriginalDutyPerson(date: Date): string {
+   if (this.currentDutyType === 'uat') {
+     const baseDate = new Date(2025, 9, 3); // 2025/10/3 開始
+     const angelaIndex = this.uatDutyPeople.findIndex(p => p.name === '小Angela');
+     
+     const daysSinceStart = Math.floor((date.getTime() - baseDate.getTime()) / (24 * 60 * 60 * 1000));
+     const sprintsSinceStart = Math.floor(daysSinceStart / 14);
+     const dutyIndex = (angelaIndex + sprintsSinceStart) % this.uatDutyPeople.length;
+     
+     return this.uatDutyPeople[dutyIndex]?.name || this.uatDutyPeople[0].name;
+   } else {
+     const baseDate = new Date(2025, 8, 29); // 2025/9/29 開始
+     const yongIndex = this.dutyPeople.findIndex(p => p.name === 'Yong');
+     
+     const daysSinceStart = Math.floor((date.getTime() - baseDate.getTime()) / (24 * 60 * 60 * 1000));
+     const weeksSinceStart = Math.floor(daysSinceStart / 7);
+     const dutyIndex = (yongIndex + weeksSinceStart) % this.dutyPeople.length;
+     
+     return this.dutyPeople[dutyIndex]?.name || this.dutyPeople[0].name;
+   }
+ }
+
  /** 更新整個值班期間 */
  async updateDutyPeriod(
    period: { startDate: Date; endDate: Date; }, 
@@ -802,11 +842,11 @@ UAT值班異動：${uatChanges} 筆
  ): Promise<void> {
    const changes: Omit<DutyChange, 'id' | 'changedAt'>[] = [];
    
+   // 第一步：收集原始人員期間的所有異動記錄
    let current = new Date(period.startDate);
    while (current <= period.endDate) {
      const dateString = format(current, 'yyyy-MM-dd');
      
-     // 收集所有異動記錄
      changes.push({
        date: dateString,
        originalPerson: originalPerson,
@@ -816,6 +856,27 @@ UAT值班異動：${uatChanges} 筆
      });
      
      current = addDays(current, 1);
+   }
+
+   // 第二步：找到新人員在同樣時間範圍內的值班期間，進行互換
+   const newPersonPeriod = this.findPersonDutyPeriodInRange(newPerson, period.startDate, period.endDate);
+   
+   if (newPersonPeriod) {
+     // 添加互換記錄：新人員 → 原人員
+     let swapCurrent = new Date(newPersonPeriod.startDate);
+     while (swapCurrent <= newPersonPeriod.endDate) {
+       const dateString = format(swapCurrent, 'yyyy-MM-dd');
+       
+       changes.push({
+         date: dateString,
+         originalPerson: newPerson,
+         newPerson: originalPerson,
+         dutyType: this.currentDutyType,
+         changedBy: changedBy || this.currentUser
+       });
+       
+       swapCurrent = addDays(swapCurrent, 1);
+     }
    }
 
    // 使用批量操作一次性提交所有異動
