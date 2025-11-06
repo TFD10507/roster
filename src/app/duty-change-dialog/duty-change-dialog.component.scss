@@ -3,6 +3,9 @@
   max-width: 600px;
   font-family: 'Roboto', sans-serif;
   padding: 8px;
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .dialog-title {
@@ -391,6 +394,7 @@
   
   .dialog-content {
     max-height: 60vh;
+    padding: 20px 10px;
   }
   
   .change-preview {
