@@ -88,6 +88,22 @@ export class DutyDatabaseService {
     return this.dutySettingsSubject.asObservable();
   }
 
+  /** 取得值班設定（一次性） */
+  async getDutySettingsOnce(): Promise<DutySettings | null> {
+    try {
+      const settingsRef = doc(db, 'dutySettings', 'current');
+      const docSnap = await getDoc(settingsRef);
+      
+      if (docSnap.exists()) {
+        return docSnap.data() as DutySettings;
+      }
+      return null;
+    } catch (error) {
+      console.error('獲取值班設定失敗:', error);
+      throw error;
+    }
+  }
+
   /** 新增值班異動記錄 */
   async addDutyChange(change: Omit<DutyChange, 'id' | 'changedAt'>): Promise<void> {
     try {
