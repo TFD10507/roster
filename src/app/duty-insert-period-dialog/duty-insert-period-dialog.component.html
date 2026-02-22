@@ -1,0 +1,143 @@
+<div class="insert-period-dialog">
+  <h2 mat-dialog-title class="dialog-title">
+    <mat-icon class="title-icon">add_box</mat-icon>
+    插入週期 - {{ data.dutyTypeName }}
+  </h2>
+
+  <mat-dialog-content class="dialog-content">
+    <div class="info-box">
+      <mat-icon class="info-icon">info</mat-icon>
+      <div class="info-text">
+        <strong>功能說明：</strong>插入一段週期後，後續的排班會自動往後延續，類似 Excel 的插入功能。
+        <br>適用於連假、特殊事件等需要調整排班的情況。
+      </div>
+    </div>
+
+    <!-- 起始日期選擇 -->
+    <div class="form-section">
+      <h3 class="section-title">
+        <mat-icon>event</mat-icon>
+        插入起始日期
+      </h3>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>選擇插入的起始日期</mat-label>
+        <input 
+          matInput 
+          [matDatepicker]="startPicker" 
+          [(ngModel)]="startDate"
+          placeholder="點擊選擇日期">
+        <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
+        <mat-datepicker #startPicker></mat-datepicker>
+        <mat-hint>從這個日期開始插入週期</mat-hint>
+      </mat-form-field>
+    </div>
+
+    <!-- 天數選擇 -->
+    <div class="form-section">
+      <h3 class="section-title">
+        <mat-icon>timelapse</mat-icon>
+        插入天數
+      </h3>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>插入的天數</mat-label>
+        <input 
+          matInput 
+          type="number"
+          [(ngModel)]="days"
+          min="1"
+          max="365"
+          placeholder="輸入天數">
+        <mat-icon matSuffix>calendar_month</mat-icon>
+        <mat-hint>範圍：1-365 天</mat-hint>
+      </mat-form-field>
+      
+      <!-- 快速選擇按鈕 -->
+      <div class="quick-select">
+        <button mat-stroked-button (click)="days = 7" [class.active]="days === 7">1週 (7天)</button>
+        <button mat-stroked-button (click)="days = 14" [class.active]="days === 14">2週 (14天)</button>
+        <button mat-stroked-button (click)="days = 21" [class.active]="days === 21">3週 (21天)</button>
+        <button mat-stroked-button (click)="days = 30" [class.active]="days === 30">1個月 (30天)</button>
+      </div>
+    </div>
+
+    <!-- 原因說明 -->
+    <div class="form-section">
+      <h3 class="section-title">
+        <mat-icon>description</mat-icon>
+        插入原因 <span class="optional">(選填)</span>
+      </h3>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>說明插入週期的原因</mat-label>
+        <textarea 
+          matInput 
+          [(ngModel)]="reason"
+          rows="3"
+          maxlength="200"
+          placeholder="例如：春節連假、系統維護期間、特殊專案等"></textarea>
+        <mat-hint align="end">{{ reason.length }}/200</mat-hint>
+      </mat-form-field>
+    </div>
+
+    <!-- 操作人員 -->
+    <div class="form-section">
+      <h3 class="section-title">
+        <mat-icon>person</mat-icon>
+        操作人員 <span class="required">*</span>
+      </h3>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>請輸入您的姓名</mat-label>
+        <input 
+          matInput 
+          [(ngModel)]="changedBy"
+          maxlength="50"
+          placeholder="輸入操作人員姓名">
+        <mat-icon matSuffix>badge</mat-icon>
+        <mat-hint>{{ changedBy.length }}/50</mat-hint>
+      </mat-form-field>
+    </div>
+
+    <!-- 預覽結果 -->
+    <div class="preview-section" *ngIf="startDate && days > 0">
+      <mat-card class="preview-card">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="preview-icon">preview</mat-icon>
+          <mat-card-title>插入預覽</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="preview-item">
+            <span class="preview-label">插入起始：</span>
+            <span class="preview-value">{{ getStartDateString() }}</span>
+          </div>
+          <div class="preview-item">
+            <span class="preview-label">插入天數：</span>
+            <span class="preview-value highlight">{{ days }} 天</span>
+          </div>
+          <div class="preview-item">
+            <span class="preview-label">插入結束：</span>
+            <span class="preview-value">{{ getEndDate() }}</span>
+          </div>
+          <div class="preview-note">
+            <mat-icon>arrow_forward</mat-icon>
+            <span>原本 {{ getStartDateString() }} 之後的排班將往後延 {{ days }} 天</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end" class="dialog-actions">
+    <button mat-button (click)="onCancel()" class="cancel-btn">
+      <mat-icon>close</mat-icon>
+      取消
+    </button>
+    <button 
+      mat-raised-button 
+      color="primary" 
+      (click)="onConfirm()"
+      [disabled]="!isValid()"
+      class="confirm-btn">
+      <mat-icon>check_circle</mat-icon>
+      確認插入
+    </button>
+  </mat-dialog-actions>
+</div>

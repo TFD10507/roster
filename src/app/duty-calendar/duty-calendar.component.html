@@ -14,24 +14,49 @@
   </div>
 
   <div class="header">
-    <div class="left">
-      <button class="nav-btn" (click)="prevMonth()">← 上一月</button>
-      <button class="nav-btn" (click)="nextMonth()">下一月 →</button>
-      <button class="nav-btn today-btn" (click)="goToToday()">今天</button>
+    <!-- 頂部導航區 -->
+    <div class="header-top">
+      <div class="nav-controls">
+        <button class="nav-btn" (click)="prevMonth()" title="上一月">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <button class="nav-btn today-btn" (click)="goToToday()" title="回到今天">今天</button>
+        <button class="nav-btn" (click)="nextMonth()" title="下一月">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+      </div>
+
+      <div class="header-title">
+        <h2>{{ viewDate | date:'yyyy 年 MMMM' }}</h2>
+        <div class="duty-type-badge">{{ getCurrentDutyTypeName() }}</div>
+      </div>
+
+      <div class="type-switch">
+        <button class="switch-btn" (click)="switchDutyType()" title="切換值班類型">
+          <mat-icon>swap_horiz</mat-icon>
+          <span>切換到{{ currentDutyType === 'normal' ? 'UAT' : '一般' }}</span>
+        </button>
+      </div>
     </div>
 
-    <div class="center">
-      <h2>{{ viewDate | date:'yyyy 年 MMMM' }}</h2>
-      <div class="duty-type-indicator">{{ getCurrentDutyTypeName() }}</div>
-    </div>
-
-    <div class="right">
-      <button class="switch-btn" (click)="switchDutyType()">
-        切換到{{ currentDutyType === 'normal' ? 'UAT測資小天使' : '一般值班' }}
+    <!-- 底部操作區 -->
+    <div class="header-actions">
+      <button class="action-btn" (click)="showDutyList()" title="查看值班人員清單">
+        <mat-icon>people</mat-icon>
+        <span>人員清單</span>
       </button>
-      <button class="action-btn" (click)="showDutyList()">值班人員清單</button>
-      <button class="action-btn conflict-btn" (click)="checkConflictsAndWarn()">檢查衝突</button>
-      <button class="action-btn history-btn" (click)="showDutyChangeHistory()">異動歷史</button>
+      <button class="action-btn insert-btn" (click)="openInsertPeriodDialog()" title="插入週期">
+        <mat-icon>add_box</mat-icon>
+        <span>插入週期</span>
+      </button>
+      <button class="action-btn conflict-btn" (click)="checkConflictsAndWarn()" title="檢查值班衝突">
+        <mat-icon>warning</mat-icon>
+        <span>檢查衝突</span>
+      </button>
+      <button class="action-btn history-btn" (click)="showDutyChangeHistory()" title="查看異動歷史">
+        <mat-icon>history</mat-icon>
+        <span>異動歷史</span>
+      </button>
     </div>
   </div>
 

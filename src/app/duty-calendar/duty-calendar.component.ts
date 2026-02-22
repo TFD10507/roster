@@ -8,6 +8,7 @@ import {
 import { addDays, startOfMonth, endOfMonth, addMonths, differenceInDays, format } from 'date-fns';
 import { DutyDatabaseService, DutyChange } from '../services/duty-database.service';
 import { DutyChangeDialogComponent, DutyChangeDialogData, DutyChangeResult } from '../duty-change-dialog/duty-change-dialog.component';
+import { DutyInsertPeriodDialogComponent, InsertPeriodResult } from '../duty-insert-period-dialog/duty-insert-period-dialog.component';
 import { Subscription } from 'rxjs';
 
 interface DutyPerson {
@@ -228,11 +229,9 @@ export class DutyCalendarComponent implements OnInit, OnDestroy {
          this.defaultDutyPeople.find(p => p.name === name) || 
          { name, color: { primary: 'gray', secondary: 'lightgray' } }
        );
-       console.log('使用資料庫的一般值班人員清單');
      } else {
        // 使用預設值
        this.dutyPeople = [...this.defaultDutyPeople];
-       console.log('使用預設一般值班人員清單');
      }
 
      if (settings && settings.uatDutyOrder && settings.uatDutyOrder.length > 0) {
@@ -241,11 +240,9 @@ export class DutyCalendarComponent implements OnInit, OnDestroy {
          this.defaultUATDutyPeople.find(p => p.name === name) || 
          { name, color: { primary: 'gray', secondary: 'lightgray' } }
        );
-       console.log('使用資料庫的UAT人員清單');
      } else {
        // 使用預設值
        this.uatDutyPeople = [...this.defaultUATDutyPeople];
-       console.log('使用預設UAT人員清單');
      }
 
    } catch (error) {
@@ -302,7 +299,6 @@ export class DutyCalendarComponent implements OnInit, OnDestroy {
 
  /** 檢查值班衝突並顯示警告 */
  checkConflictsAndWarn(): void {
-   console.log('開始檢查衝突，當前UAT人員:', this.uatDutyPeople.map(p => p.name).join(', '));
    
    const conflicts = this.findDutyConflicts();
    const upcomingConflicts = conflicts.filter(conflict => 
@@ -410,9 +406,8 @@ export class DutyCalendarComponent implements OnInit, OnDestroy {
    while (current <= end) {
      // 只處理起始點之後的日期
      if (current >= this.normalDutyStartDate) {
-       // 根據初始點和資料庫人員清單順序計算值班人員
+       // 從 Yong 開始的排序
        const yongIndex = this.dutyPeople.findIndex(p => p.name === 'Yong');
-       
        const daysSinceStart = Math.floor((current.getTime() - this.normalDutyStartDate.getTime()) / (24 * 60 * 60 * 1000));
        const weeksSinceStart = Math.floor(daysSinceStart / 7);
        const dutyIndex = (yongIndex + weeksSinceStart) % this.dutyPeople.length;
@@ -573,11 +568,13 @@ goToToday() {
    while (current <= end) {
      // 只處理起始點之後的日期
      if (current >= this.normalDutyStartDate) {
-       // 根據初始點和資料庫人員清單順序計算值班人員
+       // 從 Yong 開始的排序
        const yongIndex = this.dutyPeople.findIndex(p => p.name === 'Yong');
-       
        const daysSinceStart = Math.floor((current.getTime() - this.normalDutyStartDate.getTime()) / (24 * 60 * 60 * 1000));
-       const weeksSinceStart = Math.floor(daysSinceStart / 7);
+       // 扣除插入週期的天數
+       const insertedDays = this.countInsertedDays(this.normalDutyStartDate, current, 'normal');
+       const effectiveDays = daysSinceStart - insertedDays;
+       const weeksSinceStart = Math.floor(effectiveDays / 7);
        const dutyIndex = (yongIndex + weeksSinceStart) % this.dutyPeople.length;
        const assignedPerson = this.dutyPeople[dutyIndex] || this.dutyPeople[0];
 
@@ -614,6 +611,9 @@ goToToday() {
        const angelaIndex = this.uatDutyPeople.findIndex(p => p.name === '小Angela');
        
        const daysSinceStart = Math.floor((current.getTime() - this.uatDutyStartDate.getTime()) / (24 * 60 * 60 * 1000));
+       // 扣除插入週期的天數
+       const insertedDays = this.countInsertedDays(this.uatDutyStartDate, current, 'uat');
+       const effectiveDays = daysSinceStart - insertedDays;
        
        // 處理特殊周期 2/6-3/5 (2026)
        const specialPeriodStart = new Date(2026, 1, 6); // 2026/2/6
@@ -623,18 +623,24 @@ goToToday() {
        if (current >= specialPeriodStart && current <= specialPeriodEnd) {
          // 在特殊周期內，計算到特殊周期開始前的sprint數
          const daysBeforeSpecial = Math.floor((specialPeriodStart.getTime() - this.uatDutyStartDate.getTime()) / (24 * 60 * 60 * 1000));
-         sprintsSinceStart = Math.floor(daysBeforeSpecial / 14);
+         const insertedDaysBeforeSpecial = this.countInsertedDays(this.uatDutyStartDate, specialPeriodStart, 'uat');
+         const effectiveDaysBeforeSpecial = daysBeforeSpecial - insertedDaysBeforeSpecial;
+         sprintsSinceStart = Math.floor(effectiveDaysBeforeSpecial / 14);
        } else if (current > specialPeriodEnd) {
          // 在特殊周期之後，需要調整計算
          const daysBeforeSpecial = Math.floor((specialPeriodStart.getTime() - this.uatDutyStartDate.getTime()) / (24 * 60 * 60 * 1000));
-         const sprintsBeforeSpecial = Math.floor(daysBeforeSpecial / 14);
+         const insertedDaysBeforeSpecial = this.countInsertedDays(this.uatDutyStartDate, specialPeriodStart, 'uat');
+         const effectiveDaysBeforeSpecial = daysBeforeSpecial - insertedDaysBeforeSpecial;
+         const sprintsBeforeSpecial = Math.floor(effectiveDaysBeforeSpecial / 14);
          const daysAfterSpecialEnd = Math.floor((current.getTime() - specialPeriodEnd.getTime()) / (24 * 60 * 60 * 1000));
-         const sprintsAfterSpecial = Math.floor(daysAfterSpecialEnd / 14);
+         const insertedDaysAfterSpecial = this.countInsertedDays(specialPeriodEnd, current, 'uat');
+         const effectiveDaysAfterSpecial = daysAfterSpecialEnd - insertedDaysAfterSpecial;
+         const sprintsAfterSpecial = Math.floor(effectiveDaysAfterSpecial / 14);
          // 特殊周期算1個sprint，之後繼續往下數
          sprintsSinceStart = sprintsBeforeSpecial + 1 + sprintsAfterSpecial;
        } else {
          // 在特殊周期之前，正常計算
-         sprintsSinceStart = Math.floor(daysSinceStart / 14);
+         sprintsSinceStart = Math.floor(effectiveDays / 14);
        }
        
        const dutyIndex = (angelaIndex + sprintsSinceStart) % this.uatDutyPeople.length;
@@ -815,6 +821,72 @@ goToToday() {
    alert(`${dutyTypeName}人員清單：\n\n${list}`);
  }
 
+ /** 開啟插入週期對話框 */
+ async openInsertPeriodDialog(): Promise<void> {
+   const dutyTypeName = this.currentDutyType === 'uat' ? 'UAT測資小天使' : '一般值班';
+
+   const dialogRef = this.dialog.open(DutyInsertPeriodDialogComponent, {
+     width: '600px',
+     maxWidth: '95vw',
+     data: {
+       dutyTypeName: dutyTypeName
+     },
+     disableClose: false
+   });
+
+   dialogRef.afterClosed().subscribe(async (result: InsertPeriodResult | null) => {
+     if (!result) {
+       return; // 使用者取消
+     }
+
+     try {
+       // 計算插入週期的日期範圍
+       const startDate = result.startDate;
+       const endDate = addDays(startDate, result.days - 1);
+       const startDateStr = format(startDate, 'yyyy-MM-dd');
+       const endDateStr = format(endDate, 'yyyy-MM-dd');
+
+       // 為插入週期內的每一天創建異動記錄（標記為空白/暫停）
+       const changes: Omit<DutyChange, 'id' | 'changedAt'>[] = [];
+       let current = new Date(startDate);
+
+       while (current <= endDate) {
+         const dateString = format(current, 'yyyy-MM-dd');
+         // 使用實際值班人員（已套用所有異動後的結果），而不是計算的原始人員
+         const actualPerson = this.getActualDutyPerson(current);
+
+         if (actualPerson) {
+           changes.push({
+             date: dateString,
+             originalPerson: actualPerson,
+             newPerson: '週期插入',
+             dutyType: this.currentDutyType,
+             changedBy: result.changedBy,
+             reason: result.reason || `插入 ${result.days} 天週期`
+           });
+         }
+
+         current = addDays(current, 1);
+       }
+
+       // 批量儲存異動記錄
+       await this.dutyDatabaseService.addBatchDutyChanges(changes);
+
+       this.showToastNotification(
+         `✅ 已插入 ${result.days} 天週期 (${format(startDate, 'yyyy/MM/dd')} ~ ${format(endDate, 'yyyy/MM/dd')})`,
+         'success',
+         4000
+       );
+
+       // 重新產生排班
+       this.generateBothSchedules();
+     } catch (error) {
+       console.error('插入週期失敗:', error);
+       this.showToastNotification('❌ 插入週期失敗，請重試', 'warning', 3000);
+     }
+   });
+ }
+
  /** 套用 Firebase 中的值班異動 */
  private applyDutyChanges(events: DutyEvent[]): DutyEvent[] {
    
@@ -832,12 +904,27 @@ goToToday() {
 
      if (change) {
        
+       const titleSuffix = this.currentDutyType === 'uat' ? ' (UAT)' : '';
+       
+       // 檢查是否為插入週期
+       if (change.newPerson === '週期插入') {
+         return {
+           ...event,
+           title: `📦 插入週期${titleSuffix}`,
+           dutyPerson: '週期插入',
+           color: { 
+             primary: '#9e9e9e', 
+             secondary: '#f5f5f5' 
+           }
+         };
+       }
+       
        // 找到對應的人員顏色
        const peopleList = this.currentDutyType === 'uat' ? this.uatDutyPeople : this.dutyPeople;
        const newPerson = peopleList.find(p => p.name === change.newPerson);
        
        if (newPerson) {
-         const titleSuffix = this.currentDutyType === 'uat' ? ' (UAT)' : '';
+         // 清單內的人員，使用其顏色
          return {
            ...event,
            title: `${newPerson.name}${titleSuffix} ⚡`,
@@ -848,7 +935,16 @@ goToToday() {
            }
          };
        } else {
-         console.warn(`找不到人員: ${change.newPerson}`);
+         // 清單外的自訂人員，使用灰色標記
+         return {
+           ...event,
+           title: `${change.newPerson}${titleSuffix} ⚡`,
+           dutyPerson: change.newPerson,
+           color: { 
+             primary: '#757575', 
+             secondary: '#e0e0e0' 
+           }
+         };
        }
      }
 
@@ -991,6 +1087,50 @@ goToToday() {
  }
 
  /** 計算指定日期原本應該由誰值班（不考慮異動記錄） */
+ /** 計算從起始日期到結束日期之間插入週期的總天數 */
+ private countInsertedDays(startDate: Date, endDate: Date, dutyType: 'normal' | 'uat'): number {
+   let count = 0;
+   const insertedChanges = this.dutyChanges.filter(c => 
+     c.dutyType === dutyType && 
+     c.newPerson === '週期插入' && 
+     !c.isDeleted
+   );
+   
+   let current = new Date(startDate);
+   while (current < endDate) {
+     const dateString = format(current, 'yyyy-MM-dd');
+     const isInserted = insertedChanges.some(c => c.date === dateString);
+     if (isInserted) {
+       count++;
+     }
+     current = addDays(current, 1);
+   }
+   
+   return count;
+ }
+
+ /** 獲取某日期的實際值班人員（已套用所有異動後的結果）
+  * 用於插入週期等需要知道實際值班人員的場景
+  */
+ private getActualDutyPerson(date: Date): string {
+   const dateString = format(date, 'yyyy-MM-dd');
+   
+   // 先查找是否有已存在的異動記錄
+   const existingChange = this.dutyChanges.find(c => 
+     c.date === dateString && 
+     c.dutyType === this.currentDutyType &&
+     !c.isDeleted
+   );
+   
+   if (existingChange) {
+     // 如果已經有異動記錄，使用異動後的人員
+     return existingChange.newPerson;
+   }
+   
+   // 如果沒有異動記錄，使用原始計算的值班人員
+   return this.calculateOriginalDutyPerson(date);
+ }
+
  private calculateOriginalDutyPerson(date: Date): string {
    if (this.currentDutyType === 'uat') {
      // 檢查是否在UAT起始點之前
@@ -1001,7 +1141,10 @@ goToToday() {
      const angelaIndex = this.uatDutyPeople.findIndex(p => p.name === '小Angela');
      
      const daysSinceStart = Math.floor((date.getTime() - this.uatDutyStartDate.getTime()) / (24 * 60 * 60 * 1000));
-     const sprintsSinceStart = Math.floor(daysSinceStart / 14);
+     // 扣除插入週期的天數
+     const insertedDays = this.countInsertedDays(this.uatDutyStartDate, date, 'uat');
+     const effectiveDays = daysSinceStart - insertedDays;
+     const sprintsSinceStart = Math.floor(effectiveDays / 14);
      const dutyIndex = (angelaIndex + sprintsSinceStart) % this.uatDutyPeople.length;
      
      return this.uatDutyPeople[dutyIndex]?.name || this.uatDutyPeople[0].name;
@@ -1011,12 +1154,14 @@ goToToday() {
        return ''; // 起始點之前沒有排班
      }
      
+     // 從 Yong 開始的排序
      const yongIndex = this.dutyPeople.findIndex(p => p.name === 'Yong');
-     
      const daysSinceStart = Math.floor((date.getTime() - this.normalDutyStartDate.getTime()) / (24 * 60 * 60 * 1000));
-     const weeksSinceStart = Math.floor(daysSinceStart / 7);
+     // 扣除插入週期的天數
+     const insertedDays = this.countInsertedDays(this.normalDutyStartDate, date, 'normal');
+     const effectiveDays = daysSinceStart - insertedDays;
+     const weeksSinceStart = Math.floor(effectiveDays / 7);
      const dutyIndex = (yongIndex + weeksSinceStart) % this.dutyPeople.length;
-     
      return this.dutyPeople[dutyIndex]?.name || this.dutyPeople[0].name;
    }
  }

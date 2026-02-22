@@ -24,8 +24,10 @@ export interface DutyChangeResult {
 })
 export class DutyChangeDialogComponent {
   selectedPersonIndex: number = -1;
-  rangeType: "single" | "period" = "single";
+  rangeType: "single" | "period" = "period";
   changedBy: string = "";
+  useCustomName: boolean = false;
+  customPersonName: string = "";
 
   constructor(
     public dialogRef: MatDialogRef<DutyChangeDialogComponent>,
@@ -37,14 +39,23 @@ export class DutyChangeDialogComponent {
   }
 
   onConfirm(): void {
-    if (this.selectedPersonIndex < 0) {
-      return;
-    }
-    if (this.changedBy.trim() == "") {
+    if (!this.isValid()) {
       return;
     }
 
-    const selectedPerson = this.data.peopleList[this.selectedPersonIndex];
+    let selectedPerson: any;
+    
+    if (this.useCustomName) {
+      // 使用自訂人員
+      selectedPerson = {
+        name: this.customPersonName.trim(),
+        color: { primary: 'gray', secondary: 'lightgray' }
+      };
+    } else {
+      // 使用清單中的人員
+      selectedPerson = this.data.peopleList[this.selectedPersonIndex];
+    }
+
     const result: DutyChangeResult = {
       selectedPerson: selectedPerson,
       isWholePeriod: this.rangeType === "period",
@@ -55,18 +66,36 @@ export class DutyChangeDialogComponent {
   }
 
   isValid(): boolean {
-    return (
-      this.changedBy.trim() != "" &&
-      this.selectedPersonIndex >= 0 &&
-      this.data.peopleList[this.selectedPersonIndex]?.name !==
-        this.data.currentPerson
-    );
+    if (this.changedBy.trim() === "") {
+      return false;
+    }
+
+    if (this.useCustomName) {
+      // 自訂人員模式：檢查是否填寫名字且與當前人員不同
+      return this.customPersonName.trim() !== "" && 
+             this.customPersonName.trim() !== this.data.currentPerson;
+    } else {
+      // 清單選擇模式：檢查是否選擇了人員且與當前人員不同
+      return this.selectedPersonIndex >= 0 &&
+             this.data.peopleList[this.selectedPersonIndex]?.name !== this.data.currentPerson;
+    }
   }
 
   getSelectedPersonName(): string {
-    if (this.selectedPersonIndex >= 0) {
+    if (this.useCustomName) {
+      return this.customPersonName.trim();
+    } else if (this.selectedPersonIndex >= 0) {
       return this.data.peopleList[this.selectedPersonIndex]?.name || "";
     }
     return "";
+  }
+
+  onModeChange(): void {
+    // 切換模式時清空選擇
+    if (this.useCustomName) {
+      this.selectedPersonIndex = -1;
+    } else {
+      this.customPersonName = "";
+    }
   }
 }

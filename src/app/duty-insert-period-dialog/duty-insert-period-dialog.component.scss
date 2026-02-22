@@ -1,0 +1,253 @@
+.insert-period-dialog {
+  max-width: 600px;
+  min-width: 500px;
+}
+
+.dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #1976d2;
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0;
+  padding: 20px 24px 12px;
+  
+  .title-icon {
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+  }
+}
+
+.dialog-content {
+  padding: 24px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* 資訊提示框 */
+.info-box {
+  display: flex;
+  gap: 16px;
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border-left: 4px solid #1976d2;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+  
+  .info-icon {
+    color: #1976d2;
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+  
+  .info-text {
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #333;
+    
+    strong {
+      color: #1976d2;
+      font-weight: 600;
+    }
+  }
+}
+
+/* 表單區段 */
+.form-section {
+  margin-bottom: 28px;
+  
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 16px;
+    
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      color: #1976d2;
+    }
+    
+    .optional {
+      font-size: 12px;
+      font-weight: 400;
+      color: #999;
+      margin-left: 4px;
+    }
+    
+    .required {
+      color: #f44336;
+      font-size: 14px;
+      margin-left: 4px;
+    }
+  }
+  
+  .full-width {
+    width: 100%;
+  }
+}
+
+/* 快速選擇按鈕 */
+.quick-select {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+  
+  button {
+    flex: 1;
+    min-width: 100px;
+    transition: all 0.2s ease;
+    
+    &.active {
+      background: #1976d2;
+      color: white;
+      border-color: #1976d2;
+    }
+    
+    &:hover {
+      background: #e3f2fd;
+      border-color: #1976d2;
+    }
+  }
+}
+
+/* 預覽區塊 */
+.preview-section {
+  margin-top: 24px;
+}
+
+.preview-card {
+  background: linear-gradient(135deg, #f5f5f5 0%, #e8f5e9 100%);
+  border: 2px solid #4caf50;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.15);
+  
+  mat-card-header {
+    margin-bottom: 16px;
+    
+    .preview-icon {
+      background: #4caf50;
+      color: white;
+      font-size: 24px;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+    }
+    
+    mat-card-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #2e7d32;
+    }
+  }
+  
+  mat-card-content {
+    padding-top: 0;
+  }
+}
+
+.preview-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  margin-bottom: 8px;
+  background: white;
+  border-radius: 6px;
+  
+  .preview-label {
+    font-weight: 500;
+    color: #666;
+  }
+  
+  .preview-value {
+    font-weight: 600;
+    color: #333;
+    font-size: 15px;
+    
+    &.highlight {
+      color: #1976d2;
+      font-size: 18px;
+    }
+  }
+}
+
+.preview-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: #fff9c4;
+  border-left: 3px solid #fbc02d;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #f57f17;
+  font-weight: 500;
+  
+  mat-icon {
+    color: #fbc02d;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* 對話框按鈕 */
+.dialog-actions {
+  padding: 16px 24px;
+  border-top: 1px solid #e0e0e0;
+  gap: 12px;
+  
+  button {
+    min-width: 120px;
+    height: 44px;
+    font-size: 15px;
+    font-weight: 500;
+    
+    mat-icon {
+      margin-right: 6px;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+  }
+  
+  .cancel-btn {
+    color: #666;
+    
+    &:hover {
+      background: #f5f5f5;
+    }
+  }
+  
+  .confirm-btn {
+    &:disabled {
+      opacity: 0.5;
+    }
+  }
+}
+
+/* 響應式設計 */
+@media (max-width: 600px) {
+  .insert-period-dialog {
+    min-width: unset;
+    width: 100%;
+  }
+  
+  .quick-select button {
+    flex: 1 1 calc(50% - 4px);
+  }
+}

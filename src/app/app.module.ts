@@ -13,6 +13,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 
 // 路由
 import { AppRoutingModule } from './app-routing.module';
@@ -22,6 +24,7 @@ import { AppComponent } from './app.component';
 import { DutyCalendarComponent } from './duty-calendar/duty-calendar.component';
 import { DutyHistoryComponent } from './duty-history/duty-history.component';
 import { DutyChangeDialogComponent } from './duty-change-dialog/duty-change-dialog.component';
+import { DutyInsertPeriodDialogComponent } from './duty-insert-period-dialog/duty-insert-period-dialog.component';
 
 // 服務
 import { DutyDatabaseService } from './services/duty-database.service';
@@ -35,6 +38,7 @@ import { FilterPipe } from './shared/filter.pipe';
     DutyCalendarComponent,
     DutyHistoryComponent,
     DutyChangeDialogComponent,
+    DutyInsertPeriodDialogComponent,
     FilterPipe
   ],
   imports: [
@@ -50,6 +54,8 @@ import { FilterPipe } from './shared/filter.pipe';
     MatInputModule,
     MatIconModule,
     MatCardModule,
+    MatDatepickerModule,
+    MatNativeDateModule,
     CalendarModule.forRoot({
       provide: DateAdapter,
       useFactory: adapterFactory

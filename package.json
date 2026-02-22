@@ -5,7 +5,7 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
-    "build:prod": "ng build --configuration production",
+    "build:prod": "ng build --configuration production --base-href ./",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "deploy": "ng build --configuration production --base-href ./ && npx angular-cli-ghpages --dir=dist/duty-schedule"
