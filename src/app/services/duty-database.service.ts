@@ -5,28 +5,43 @@ import {
   setDoc, 
   getDoc, 
   onSnapshot, 
-  updateDoc,
   Timestamp,
   query,
   orderBy,
   limit,
-  getDocs
+  getDocs,
+  deleteDoc,
+  where,
+  QuerySnapshot
 } from 'firebase/firestore';
 import { db } from './firebase.config';
 import { BehaviorSubject, Observable } from 'rxjs';
 
-export interface DutyChange {
-  id: string;
-  date: string;
+export interface DutyChangeHistory {
   originalPerson: string;
   newPerson: string;
-  dutyType: 'normal' | 'uat';
   changedBy: string;
   changedAt: Timestamp;
   reason?: string;
+}
+
+export interface DutyChange {
+  id: string; // 格式: ${date}-${dutyType}
+  date: string;
+  originalPerson: string; // 最初的原始人員（計算出的預設值班人員）
+  newPerson: string; // 當前的人員（最新的變更）
+  dutyType: 'normal' | 'uat';
+  changedBy: string; // 最後變更者
+  changedAt: Timestamp; // 最後變更時間
+  createdAt: Timestamp; // 首次建立時間
+  reason?: string; // 最後變更原因
   isDeleted?: boolean;
   deletedAt?: Timestamp;
+  changeCount: number; // 變更次數（用於追蹤）
 }
+
+// 簡化的類型定義：用於新增/更新時的輸入
+export type DutyChangeInput = Omit<DutyChange, 'id' | 'changedAt' | 'createdAt' | 'changeCount'>;
 
 export interface DutySettings {
   normalDutyOrder: string[];
@@ -104,29 +119,54 @@ export class DutyDatabaseService {
     }
   }
 
-  /** 新增值班異動記錄 */
-  async addDutyChange(change: Omit<DutyChange, 'id' | 'changedAt'>): Promise<void> {
+
+
+  /** 新增或更新值班異動記錄
+   * - 使用固定的文件 ID: ${date}-${dutyType}
+   * - 如果記錄已存在，直接覆蓋更新
+   * - 如果記錄不存在，創建新記錄
+   */
+  async addDutyChange(change: DutyChangeInput): Promise<void> {
     try {
-      const changeRef = doc(collection(db, 'dutyChanges'));
+      // 使用固定的文件 ID
+      const docId = `${change.date}-${change.dutyType}`;
+      const changeRef = doc(db, 'dutyChanges', docId);
       
-      // 過濾掉 undefined 值，避免 Firebase 錯誤
-      const cleanedChange: any = {
+      // 檢查記錄是否已存在
+      const existingDoc = await getDoc(changeRef);
+      const now = Timestamp.now();
+      
+      // 準備要保存的資料
+      const changeData: any = {
         date: change.date,
         originalPerson: change.originalPerson,
         newPerson: change.newPerson,
         dutyType: change.dutyType,
         changedBy: change.changedBy,
-        changedAt: Timestamp.now()
+        changedAt: now,
+        createdAt: existingDoc.exists() 
+          ? (existingDoc.data() as DutyChange).createdAt || now
+          : now,
+        changeCount: existingDoc.exists() 
+          ? ((existingDoc.data() as DutyChange).changeCount || 0) + 1
+          : 1
       };
       
       // 只有當 reason 有值時才加入
       if (change.reason !== undefined && change.reason !== null) {
-        cleanedChange.reason = change.reason;
+        changeData.reason = change.reason;
       }
       
-      await setDoc(changeRef, cleanedChange);
+      // 使用 setDoc 創建或覆蓋更新
+      await setDoc(changeRef, changeData);
+      
+      if (existingDoc.exists()) {
+        console.log(`✅ 更新值班異動: ${docId} (第 ${changeData.changeCount} 次變更)`);
+      } else {
+        console.log(`✅ 創建新值班異動: ${docId}`);
+      }
     } catch (error) {
-      console.error('新增值班異動失敗:', error);
+      console.error('新增/更新值班異動失敗:', error);
       throw error;
     }
   }
@@ -163,10 +203,16 @@ export class DutyDatabaseService {
   async deleteDutyChange(changeId: string): Promise<void> {
     try {
       const changeRef = doc(db, 'dutyChanges', changeId);
-      await updateDoc(changeRef, {
-        isDeleted: true,
-        deletedAt: Timestamp.now()
-      });
+      const docSnap = await getDoc(changeRef);
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        await setDoc(changeRef, {
+          ...data,
+          isDeleted: true,
+          deletedAt: Timestamp.now()
+        });
+      }
     } catch (error) {
       console.error('刪除值班異動失敗:', error);
       throw error;
@@ -178,34 +224,38 @@ export class DutyDatabaseService {
     return this.dutyChangesSubject.value.filter(change => !(change as any).isDeleted);
   }
 
-  /** 批量新增值班異動記錄（優化版本） */
-  async addBatchDutyChanges(changes: Omit<DutyChange, 'id' | 'changedAt'>[]): Promise<void> {
+  /** 批量新增或更新值班異動記錄
+   * - 使用智慧更新邏輯，自動判斷新增或更新
+   */
+  async addBatchDutyChanges(changes: DutyChangeInput[]): Promise<void> {
     try {
       const promises = changes.map(async (change) => {
-        const changeRef = doc(collection(db, 'dutyChanges'));
-        
-        // 過濾掉 undefined 值，避免 Firebase 錯誤
-        const cleanedChange: any = {
-          date: change.date,
-          originalPerson: change.originalPerson,
-          newPerson: change.newPerson,
-          dutyType: change.dutyType,
-          changedBy: change.changedBy,
-          changedAt: Timestamp.now()
-        };
-        
-        // 只有當 reason 有值時才加入
-        if (change.reason !== undefined && change.reason !== null) {
-          cleanedChange.reason = change.reason;
-        }
-        
-        return setDoc(changeRef, cleanedChange);
+        // 直接調用 addDutyChange 以保持邏輯一致
+        return this.addDutyChange(change);
       });
 
       await Promise.all(promises);
     } catch (error) {
-      console.error('批量新增值班異動失敗:', error);
+      console.error('批量新增/更新值班異動失敗:', error);
       throw error;
     }
   }
+
+  /** 取得特定值班異動的完整歷史記錄 */
+  /** 取得特定值班異動的完整歷史記錄 
+   * 注意：此功能已停用（為避免 Firebase 權限問題，不再使用子集合）
+   */
+  async getDutyChangeHistory(date: string, dutyType: 'normal' | 'uat'): Promise<DutyChangeHistory[]> {
+    console.warn('歷史記錄功能已停用（Firebase 權限限制）');
+    return [];
+  }
+
+  /** 還原到之前的版本（從歷史記錄中）
+   * 注意：此功能已停用（為避免 Firebase 權限問題，不再使用子集合）
+   */
+  async revertDutyChange(date: string, dutyType: 'normal' | 'uat', changedBy: string): Promise<void> {
+    throw new Error('還原功能已停用（Firebase 權限限制）。如需此功能，請更新 Firebase 安全規則以支持子集合。');
+  }
+
+
 }
