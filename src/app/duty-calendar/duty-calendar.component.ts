@@ -80,7 +80,7 @@ export class DutyCalendarComponent implements OnInit, OnDestroy {
 
  // 排班起始日期設定 - 調整為符合 Lynn → Eason → Yong → Roy → 77 的輪值順序
  private normalDutyStartDate = new Date(2026, 1, 23); // 2026/2/23 開始，Lynn 第一週
- private uatDutyStartDate = new Date(2025, 9, 3); // 2025/10/3 開始
+ private uatDutyStartDate = new Date(2026, 1, 6); // 2026/2/6 開始，Eason負責
 
  // 當前值班類型：'normal' 一般值班 或 'uat' UAT測資小天使
  currentDutyType: 'normal' | 'uat' = 'normal';
@@ -445,48 +445,19 @@ export class DutyCalendarComponent implements OnInit, OnDestroy {
 
    let current = new Date(start);
    while (current <= end) {
-     // 只處理起始點之後的日期
      if (current >= this.uatDutyStartDate) {
-       // 根據初始點和資料庫人員清單順序計算UAT值班人員
-       // 使用第一個人(Lynn)作為起始點
-       const startIndex = 0;
-       
-       const daysSinceStart = Math.floor((current.getTime() - this.uatDutyStartDate.getTime()) / (24 * 60 * 60 * 1000));
-       
-       // 處理特殊周期 2/6-3/5 (2026)
-       const specialPeriodStart = new Date(2026, 1, 6); // 2026/2/6
-       const specialPeriodEnd = new Date(2026, 2, 5); // 2026/3/5
-       
-       let sprintsSinceStart;
-       if (current >= specialPeriodStart && current <= specialPeriodEnd) {
-         // 在特殊周期內，計算到特殊周期開始前的sprint數
-         const daysBeforeSpecial = Math.floor((specialPeriodStart.getTime() - this.uatDutyStartDate.getTime()) / (24 * 60 * 60 * 1000));
-         sprintsSinceStart = Math.floor(daysBeforeSpecial / 14);
-       } else if (current > specialPeriodEnd) {
-         // 在特殊周期之後，需要調整計算
-         const daysBeforeSpecial = Math.floor((specialPeriodStart.getTime() - this.uatDutyStartDate.getTime()) / (24 * 60 * 60 * 1000));
-         const sprintsBeforeSpecial = Math.floor(daysBeforeSpecial / 14);
-         const daysAfterSpecialEnd = Math.floor((current.getTime() - specialPeriodEnd.getTime()) / (24 * 60 * 60 * 1000));
-         const sprintsAfterSpecial = Math.floor(daysAfterSpecialEnd / 14);
-         // 特殊周期算1個sprint，之後繼續往下數
-         sprintsSinceStart = sprintsBeforeSpecial + 1 + sprintsAfterSpecial;
-       } else {
-         // 在特殊周期之前，正常計算
-         sprintsSinceStart = Math.floor(daysSinceStart / 14);
+       const personName = this.getUATDutyPerson(current);
+       if (personName) {
+         const assignedPerson = this.uatDutyPeople.find(p => p.name === personName) || this.uatDutyPeople[0];
+         days.push({
+           title: `${assignedPerson.name} (UAT)`,
+           start: new Date(current),
+           allDay: true,
+           color: assignedPerson.color,
+           dutyPerson: assignedPerson.name
+         });
        }
-       
-       const dutyIndex = (startIndex + sprintsSinceStart) % this.uatDutyPeople.length;
-       const assignedPerson = this.uatDutyPeople[dutyIndex] || this.uatDutyPeople[0];
-
-       days.push({
-         title: `${assignedPerson.name} (UAT)`,
-         start: new Date(current),
-         allDay: true,
-         color: assignedPerson.color,
-         dutyPerson: assignedPerson.name
-       });
      }
-
      current = addDays(current, 1);
    }
 
@@ -625,59 +596,20 @@ goToToday() {
    const days: DutyEvent[] = [];
 
    let current = new Date(start);
-
    while (current <= end) {
-     // 只處理起始點之後的日期
      if (current >= this.uatDutyStartDate) {
-       // 根據初始點和資料庫人員清單順序計算UAT值班人員
-       // 使用第一個人(Lynn)作為起始點
-       const startIndex = 0;
-       
-       const daysSinceStart = Math.floor((current.getTime() - this.uatDutyStartDate.getTime()) / (24 * 60 * 60 * 1000));
-       // 扣除插入週期的天數
-       const insertedDays = this.countInsertedDays(this.uatDutyStartDate, current, 'uat');
-       const effectiveDays = daysSinceStart - insertedDays;
-       
-       // 處理特殊周期 2/6-3/5 (2026)
-       const specialPeriodStart = new Date(2026, 1, 6); // 2026/2/6
-       const specialPeriodEnd = new Date(2026, 2, 5); // 2026/3/5
-       
-       let sprintsSinceStart;
-       if (current >= specialPeriodStart && current <= specialPeriodEnd) {
-         // 在特殊周期內，計算到特殊周期開始前的sprint數
-         const daysBeforeSpecial = Math.floor((specialPeriodStart.getTime() - this.uatDutyStartDate.getTime()) / (24 * 60 * 60 * 1000));
-         const insertedDaysBeforeSpecial = this.countInsertedDays(this.uatDutyStartDate, specialPeriodStart, 'uat');
-         const effectiveDaysBeforeSpecial = daysBeforeSpecial - insertedDaysBeforeSpecial;
-         sprintsSinceStart = Math.floor(effectiveDaysBeforeSpecial / 14);
-       } else if (current > specialPeriodEnd) {
-         // 在特殊周期之後，需要調整計算
-         const daysBeforeSpecial = Math.floor((specialPeriodStart.getTime() - this.uatDutyStartDate.getTime()) / (24 * 60 * 60 * 1000));
-         const insertedDaysBeforeSpecial = this.countInsertedDays(this.uatDutyStartDate, specialPeriodStart, 'uat');
-         const effectiveDaysBeforeSpecial = daysBeforeSpecial - insertedDaysBeforeSpecial;
-         const sprintsBeforeSpecial = Math.floor(effectiveDaysBeforeSpecial / 14);
-         const daysAfterSpecialEnd = Math.floor((current.getTime() - specialPeriodEnd.getTime()) / (24 * 60 * 60 * 1000));
-         const insertedDaysAfterSpecial = this.countInsertedDays(specialPeriodEnd, current, 'uat');
-         const effectiveDaysAfterSpecial = daysAfterSpecialEnd - insertedDaysAfterSpecial;
-         const sprintsAfterSpecial = Math.floor(effectiveDaysAfterSpecial / 14);
-         // 特殊周期算1個sprint，之後繼續往下數
-         sprintsSinceStart = sprintsBeforeSpecial + 1 + sprintsAfterSpecial;
-       } else {
-         // 在特殊周期之前，正常計算
-         sprintsSinceStart = Math.floor(effectiveDays / 14);
+       const personName = this.getUATDutyPerson(current);
+       if (personName) {
+         const assignedPerson = this.uatDutyPeople.find(p => p.name === personName) || this.uatDutyPeople[0];
+         days.push({
+           title: `${assignedPerson.name} (UAT)`,
+           start: new Date(current),
+           allDay: true,
+           color: assignedPerson.color,
+           dutyPerson: assignedPerson.name
+         });
        }
-       
-       const dutyIndex = (startIndex + sprintsSinceStart) % this.uatDutyPeople.length;
-       const assignedPerson = this.uatDutyPeople[dutyIndex] || this.uatDutyPeople[0];
-
-       days.push({
-         title: `${assignedPerson.name} (UAT)`,
-         start: new Date(current),
-         allDay: true,
-         color: assignedPerson.color,
-         dutyPerson: assignedPerson.name
-       });
      }
-
      current = addDays(current, 1);
    }
 
@@ -1042,49 +974,114 @@ goToToday() {
    };
  }
 
- /** 計算UAT值班的期間（2週為單位，特殊周期 2/6-3/5 為28天） */
- private calculateUATPeriod(clickedDate: Date, personName: string): { startDate: Date; endDate: Date; } | null {
-   const baseDate = new Date(2025, 9, 3); // 2025/10/3 開始 (月份從0開始，所以9月=10月)
+ /** 統一的UAT Sprint計算邏輯 */
+ private calculateUATSprint(date: Date): number {
+   // 特殊周期：2026/2/6 - 2026/3/5 (固定為sprint 0)
+   const specialPeriodStart = new Date(2026, 1, 6);
+   const specialPeriodEnd = new Date(2026, 2, 5);
    
-   // 特殊周期：2026/2/6 - 2026/3/5 (28天)
+   if (date >= specialPeriodStart && date <= specialPeriodEnd) {
+     return 0; // 特殊周期內都是sprint 0
+   }
+   
+   if (date < specialPeriodStart) {
+     // 特殊周期之前，正常14天一個sprint
+     const daysSinceStart = Math.floor((date.getTime() - this.uatDutyStartDate.getTime()) / (24 * 60 * 60 * 1000));
+     const insertedDays = this.countInsertedDays(this.uatDutyStartDate, date, 'uat');
+     return Math.floor((daysSinceStart - insertedDays) / 14);
+   }
+   
+   // 特殊周期之後，從sprint 1開始
+   const daysAfterSpecialEnd = Math.floor((date.getTime() - specialPeriodEnd.getTime()) / (24 * 60 * 60 * 1000));
+   const insertedDaysAfterSpecial = this.countInsertedDays(specialPeriodEnd, date, 'uat');
+   const effectiveDays = daysAfterSpecialEnd - insertedDaysAfterSpecial;
+   return 1 + Math.floor((effectiveDays - 1) / 14); // -1確保邊界正確
+ }
+
+ /** 簡化的UAT值班人員計算 */
+ private getUATDutyPerson(date: Date): string {
+   if (date < this.uatDutyStartDate || this.uatDutyPeople.length === 0) {
+     return '';
+   }
+   
+   const sprintNumber = this.calculateUATSprint(date);
+   // 校準：確保2026/2/6是Eason（索引9）
+   const easonIndex = this.uatDutyPeople.findIndex(p => p.name === 'Eason');
+   const calibrationOffset = easonIndex >= 0 ? easonIndex : 0;
+   
+   const dutyIndex = (calibrationOffset + sprintNumber) % this.uatDutyPeople.length;
+   return this.uatDutyPeople[dutyIndex]?.name || '';
+ }
+
+ /** 計算UAT期間 */
+ private getUATPeriod(date: Date): { startDate: Date; endDate: Date } | null {
+   if (date < this.uatDutyStartDate) return null;
+   
+   const specialPeriodStart = new Date(2026, 1, 6);
+   const specialPeriodEnd = new Date(2026, 2, 5);
+   
+   // 特殊周期
+   if (date >= specialPeriodStart && date <= specialPeriodEnd) {
+     return { startDate: specialPeriodStart, endDate: specialPeriodEnd };
+   }
+   
+   if (date < specialPeriodStart) {
+     // 特殊周期之前
+     const daysSinceStart = Math.floor((date.getTime() - this.uatDutyStartDate.getTime()) / (24 * 60 * 60 * 1000));
+     const sprintIndex = Math.floor(daysSinceStart / 14);
+     const startDate = addDays(this.uatDutyStartDate, sprintIndex * 14);
+     return { startDate, endDate: addDays(startDate, 13) };
+   }
+   
+   // 特殊周期之後
+   const daysAfterSpecial = Math.floor((date.getTime() - specialPeriodEnd.getTime()) / (24 * 60 * 60 * 1000));
+   const sprintIndex = Math.floor((daysAfterSpecial - 1) / 14);
+   const startDate = addDays(specialPeriodEnd, sprintIndex * 14 + 1);
+   return { startDate, endDate: addDays(startDate, 13) };
+ }
+
+ /** 計算UAT值班的起始索引（基於校準點） */
+ private calculateUATStartIndex(calibrationDate: Date, calibrationPerson: string): number {
+   // 找到校準人員在當前清單中的位置
+   const calibrationPersonIndex = this.uatDutyPeople.findIndex(p => p.name === calibrationPerson);
+   if (calibrationPersonIndex === -1) {
+     // 如果校準人員不在清單中，使用標準邏輯（從索引0開始）
+     return 0;
+   }
+   
+   // 計算校準日期距離基準日期的天數
+   const daysSinceStart = Math.floor((calibrationDate.getTime() - this.uatDutyStartDate.getTime()) / (24 * 60 * 60 * 1000));
+   
+   // 處理特殊周期邏輯，計算校準日期對應的sprint數
    const specialPeriodStart = new Date(2026, 1, 6); // 2026/2/6
    const specialPeriodEnd = new Date(2026, 2, 5); // 2026/3/5
    
-   // 如果點擊的日期在特殊周期內
-   if (clickedDate >= specialPeriodStart && clickedDate <= specialPeriodEnd) {
-     return {
-       startDate: specialPeriodStart,
-       endDate: specialPeriodEnd
-     };
+   let sprintsSinceStart;
+   if (calibrationDate >= specialPeriodStart && calibrationDate <= specialPeriodEnd) {
+     // 在特殊周期內
+     sprintsSinceStart = 0;
+   } else if (calibrationDate > specialPeriodEnd) {
+     // 在特殊周期之後
+     const daysAfterSpecialEnd = Math.floor((calibrationDate.getTime() - specialPeriodEnd.getTime()) / (24 * 60 * 60 * 1000));
+     const sprintsAfterSpecial = Math.floor((daysAfterSpecialEnd - 1) / 14);
+     sprintsSinceStart = 1 + sprintsAfterSpecial;
+   } else {
+     // 在特殊周期之前
+     sprintsSinceStart = Math.floor(daysSinceStart / 14);
    }
    
-   const daysSinceStart = Math.floor((clickedDate.getTime() - baseDate.getTime()) / (24 * 60 * 60 * 1000));
+   // 計算如果從索引0開始，校準日期應該是哪個索引
+   const expectedIndex = sprintsSinceStart % this.uatDutyPeople.length;
    
-   // 如果點擊日期在特殊周期之前
-   if (clickedDate < specialPeriodStart) {
-     const sprintsSinceStart = Math.floor(daysSinceStart / 14);
-     const sprintStartDate = addDays(baseDate, sprintsSinceStart * 14);
-     const sprintEndDate = addDays(sprintStartDate, 13);
-     
-     return {
-       startDate: sprintStartDate,
-       endDate: sprintEndDate
-     };
-   }
+   // 計算需要的偏移量，使得在校準日期剛好是指定人員
+   const offset = (calibrationPersonIndex - expectedIndex + this.uatDutyPeople.length) % this.uatDutyPeople.length;
    
-   // 如果點擊日期在特殊周期之後
-   // 計算從特殊周期結束後的天數（3/6是第1天）
-   const daysAfterSpecialEnd = Math.floor((clickedDate.getTime() - specialPeriodEnd.getTime()) / (24 * 60 * 60 * 1000));
-   const sprintsAfterSpecial = Math.floor(daysAfterSpecialEnd / 14);
-   
-   // 計算該sprint的開始日期（從3/6開始算）
-   const sprintStartDate = addDays(specialPeriodEnd, 1 + sprintsAfterSpecial * 14);
-   const sprintEndDate = addDays(sprintStartDate, 13);
-   
-   return {
-     startDate: sprintStartDate,
-     endDate: sprintEndDate
-   };
+   return offset;
+ }
+
+ /** 計算UAT值班的期間（2週為單位，特殊周期 2/6-3/5 為28天） */
+ private calculateUATPeriod(clickedDate: Date, personName: string): { startDate: Date; endDate: Date; } | null {
+   return this.getUATPeriod(clickedDate);
  }
 
  /** 找到指定人員在特定時間範圍內的值班期間 */
@@ -1163,22 +1160,7 @@ goToToday() {
 
  private calculateOriginalDutyPerson(date: Date): string {
    if (this.currentDutyType === 'uat') {
-     // 檢查是否在UAT起始點之前
-     if (date < this.uatDutyStartDate) {
-       return ''; // 起始點之前沒有排班
-     }
-     
-     // 使用第一個人(Lynn)作為起始點
-     const startIndex = 0;
-     
-     const daysSinceStart = Math.floor((date.getTime() - this.uatDutyStartDate.getTime()) / (24 * 60 * 60 * 1000));
-     // 扣除插入週期的天數
-     const insertedDays = this.countInsertedDays(this.uatDutyStartDate, date, 'uat');
-     const effectiveDays = daysSinceStart - insertedDays;
-     const sprintsSinceStart = Math.floor(effectiveDays / 14);
-     const dutyIndex = (startIndex + sprintsSinceStart) % this.uatDutyPeople.length;
-     
-     return this.uatDutyPeople[dutyIndex]?.name || this.uatDutyPeople[0].name;
+     return this.getUATDutyPerson(date);
    } else {
      // 檢查是否在一般值班起始點之前
      if (date < this.normalDutyStartDate) {
