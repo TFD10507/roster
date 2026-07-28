@@ -40,14 +40,48 @@ export interface DutyChange {
   changeCount: number; // 變更次數（用於追蹤）
 }
 
+export interface InsertedPeriod {
+  id: string;
+  dutyType: 'normal' | 'uat';
+  startDate: string;
+  endDate: string;
+  changedBy: string;
+  changedAt: Timestamp;
+  createdAt: Timestamp;
+  reason?: string;
+  isDeleted?: boolean;
+  deletedAt?: Timestamp;
+}
+
 // 簡化的類型定義：用於新增/更新時的輸入
 export type DutyChangeInput = Omit<DutyChange, 'id' | 'changedAt' | 'createdAt' | 'changeCount'>;
+export type InsertedPeriodInput = Omit<InsertedPeriod, 'id' | 'changedAt' | 'createdAt'>;
 
 export interface DutySettings {
-  normalDutyOrder: string[];
-  uatDutyOrder: string[];
+  uatDutyOrder?: string[];
+  uatDutyOrderVersions?: DutyOrderVersion[] | Record<string, DutyOrderVersionByDate>;
+  normalDutyOrderVersions?: DutyOrderVersion[] | Record<string, DutyOrderVersionByDate>;
+  settinglist?: DutySettingList;
   lastUpdated: Timestamp;
   updatedBy: string;
+}
+
+export interface DutyOrderVersion {
+  effectiveDate: string;
+  order: string[];
+  anchorPerson: string;
+}
+
+export interface DutyOrderVersionByDate {
+  effectiveDate?: string;
+  anchorPerson: string;
+  order: string[] | Record<string, string>;
+}
+
+export interface DutySettingList {
+  uatDutyOrder?: string[] | Record<string, string>;
+  uatDutyOrderVersions?: DutyOrderVersion[] | Record<string, DutyOrderVersionByDate>;
+  normalDutyOrderVersions?: DutyOrderVersion[] | Record<string, DutyOrderVersionByDate>;
 }
 
 @Injectable({
@@ -55,6 +89,7 @@ export interface DutySettings {
 })
 export class DutyDatabaseService {
   private dutyChangesSubject = new BehaviorSubject<DutyChange[]>([]);
+  private insertedPeriodsSubject = new BehaviorSubject<InsertedPeriod[]>([]);
   private dutySettingsSubject = new BehaviorSubject<DutySettings | null>(null);
   private isInitialized = false;
 
@@ -79,6 +114,17 @@ export class DutyDatabaseService {
         this.dutyChangesSubject.next(changes);
       });
 
+      const insertedPeriodsRef = collection(db, 'insertedPeriods');
+      const insertedPeriodsQuery = query(insertedPeriodsRef, orderBy('changedAt', 'desc'));
+
+      onSnapshot(insertedPeriodsQuery, (snapshot) => {
+        const periods: InsertedPeriod[] = [];
+        snapshot.forEach((doc) => {
+          periods.push({ id: doc.id, ...doc.data() } as InsertedPeriod);
+        });
+        this.insertedPeriodsSubject.next(periods);
+      });
+
       // 監聽值班設定
       const settingsRef = doc(db, 'dutySettings', 'current');
       onSnapshot(settingsRef, (doc) => {
@@ -96,6 +142,11 @@ export class DutyDatabaseService {
   /** 取得值班異動記錄（即時） */
   getDutyChanges(): Observable<DutyChange[]> {
     return this.dutyChangesSubject.asObservable();
+  }
+
+  /** 取得插入週期（即時） */
+  getInsertedPeriods(): Observable<InsertedPeriod[]> {
+    return this.insertedPeriodsSubject.asObservable();
   }
 
   /** 取得值班設定（即時） */
@@ -171,16 +222,44 @@ export class DutyDatabaseService {
     }
   }
 
+  /** 新增或更新插入週期 */
+  async addInsertedPeriod(period: InsertedPeriodInput): Promise<void> {
+    try {
+      const docId = `${period.dutyType}-${period.startDate}-${period.endDate}`;
+      const periodRef = doc(db, 'insertedPeriods', docId);
+      const existingDoc = await getDoc(periodRef);
+      const now = Timestamp.now();
+
+      const periodData: any = {
+        dutyType: period.dutyType,
+        startDate: period.startDate,
+        endDate: period.endDate,
+        changedBy: period.changedBy,
+        changedAt: now,
+        createdAt: existingDoc.exists()
+          ? (existingDoc.data() as InsertedPeriod).createdAt || now
+          : now
+      };
+
+      if (period.reason !== undefined && period.reason !== null) {
+        periodData.reason = period.reason;
+      }
+
+      await setDoc(periodRef, periodData);
+    } catch (error) {
+      console.error('新增/更新插入週期失敗:', error);
+      throw error;
+    }
+  }
+
   /** 更新值班人員順序 */
   async updateDutyOrder(
-    normalOrder: string[], 
     uatOrder: string[], 
     updatedBy: string
   ): Promise<void> {
     try {
       const settingsRef = doc(db, 'dutySettings', 'current');
       await setDoc(settingsRef, {
-        normalDutyOrder: normalOrder,
         uatDutyOrder: uatOrder,
         lastUpdated: Timestamp.now(),
         updatedBy: updatedBy
@@ -222,6 +301,11 @@ export class DutyDatabaseService {
   /** 取得當前使用中的值班異動（排除已刪除的） */
   getActiveDutyChanges(): DutyChange[] {
     return this.dutyChangesSubject.value.filter(change => !(change as any).isDeleted);
+  }
+
+  /** 取得當前使用中的插入週期（排除已刪除的） */
+  getActiveInsertedPeriods(): InsertedPeriod[] {
+    return this.insertedPeriodsSubject.value.filter(period => !period.isDeleted);
   }
 
   /** 批量新增或更新值班異動記錄
